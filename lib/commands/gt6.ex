@@ -18,7 +18,6 @@ defmodule Overdiscord.Commands.GT6 do
           |> String.split("\r\n[", trum: true)
           |> case do
                [_] -> []
-               # [_version_line, "Nothing (I tend to only add finished Stuff to the Changelog)."] -> []
                [version_line | entries] ->
                 {version, description} =
                    case String.split(version_line, ":", parts: 2) do
@@ -34,7 +33,6 @@ defmodule Overdiscord.Commands.GT6 do
                          _ -> entry
                        end
                    end)
-                # TODO:  Maybe combine untyped entries into their prior?
                  %{
                    version: version,
                    description: description,
