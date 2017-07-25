@@ -3,8 +3,6 @@ defmodule Overdiscord do
   """
 
   use Application
-  alias Alchemy.Client
-
 
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
@@ -12,7 +10,7 @@ defmodule Overdiscord do
 
     children = [
       worker(Overdiscord.IRC.Bridge, [client]),
-      worker(Client, [System.get_env("OVERDISCORD_TOKEN"), []]),
+      worker(Alchemy.Client, [System.get_env("OVERDISCORD_TOKEN"), []]),
       worker(Overdiscord.Commands, [])
     ]
 
