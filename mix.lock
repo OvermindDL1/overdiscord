@@ -16,6 +16,7 @@
   "poly1305": {:hex, :poly1305, "1.0.0", "929b62d79f7f9ae12a5159e60989941035fbdda06386e6b2ec3e455cc7659eb9", [:mix], [{:chacha20, "~> 1.0", [hex: :chacha20, optional: false]}, {:equivalex, "~> 1.0", [hex: :equivalex, optional: false]}]},
   "porcelain": {:hex, :porcelain, "2.0.3", "2d77b17d1f21fed875b8c5ecba72a01533db2013bd2e5e62c6d286c029150fdc", [:mix], []},
   "salsa20": {:hex, :salsa20, "1.0.0", "f13a5f671b78ab24a0c9b18b87fc62e7d56e1c195a293aaeb940026162020d8e", [:mix], []},
+  "sizeable": {:hex, :sizeable, "1.0.2", "625fe06a5dad188b52121a140286f1a6ae1adf350a942cf419499ecd8a11ee29", [:mix], []},
   "ssl_verify_fun": {:hex, :ssl_verify_fun, "1.1.1", "28a4d65b7f59893bc2c7de786dec1e1555bd742d336043fe644ae956c3497fbe", [:make, :rebar], []},
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.2.0", "dbbccf6781821b1c0701845eaf966c9b6d83d7c3bfc65ca2b78b88b8678bfa35", [:rebar3], []},
   "websocket_client": {:hex, :websocket_client, "1.2.4", "14ec1ca4b6d247b44ccd9a80af8f6ca98328070f6c1d52a5cb00bc9d939d63b8", [:rebar3], []}}

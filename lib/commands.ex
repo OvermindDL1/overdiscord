@@ -11,12 +11,17 @@ defmodule Overdiscord.Commands do
       "!list" -> Overdiscord.IRC.Bridge.list_users()
       "!"<>_ -> :ok
       content ->
+        #IO.inspect("Msg dump: #{inspect msg}")
         IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
         Overdiscord.IRC.Bridge.send_msg(username, content)
+        Enum.map(msg.attachments, fn %{filename: filename, size: size, url: url, proxy_url: _proxy_url}=_attachment ->
+          size = Sizeable.filesize(size, spacer: "")
+          Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
+        end)
     end
   end
   def on_msg(msg) do
-    #IO.inspect(msg, label: :UnhandledMsg)
+    IO.inspect(msg, label: :UnhandledMsg)
   end
 
   def start_link() do

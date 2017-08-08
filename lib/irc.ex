@@ -95,6 +95,11 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
+  def handle_info(:disconnected, state) do
+    ExIrc.Client.connect!(state.client, state.host, state.port)
+    {:noreply, state}
+  end
+
 
   def handle_info(msg, state) do
     IO.inspect("Unknown IRC message: #{inspect msg}")

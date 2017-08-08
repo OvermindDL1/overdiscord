@@ -39,6 +39,7 @@ defmodule Overdiscord.Mixfile do
       {:alchemy, "~> 0.5.0", hex: :discord_alchemy},
       {:httpoison, "~> 0.12.0", override: true},
       {:exirc, "~> 1.0"},
+      {:sizeable, "~> 1.0"},
     ]
   end
 end
