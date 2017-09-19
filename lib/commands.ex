@@ -31,6 +31,7 @@ defmodule Overdiscord.Commands do
   def init(_) do
     use Overdiscord.Commands.Basic
     use Overdiscord.Commands.GT6
+    use Overdiscord.Commands.GD
     Alchemy.Cogs.EventHandler.add_handler({:message_create, {__MODULE__, :on_msg}})
     {:ok, nil}
   end

@@ -40,6 +40,7 @@ defmodule Overdiscord.Mixfile do
       {:httpoison, "~> 0.12.0", override: true},
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
+      {:meeseeks, "~> 0.7.2"},
     ]
   end
 end
