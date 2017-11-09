@@ -15,7 +15,7 @@ defmodule Overdiscord.IRC.Bridge do
   def send_msg("", _), do: nil
   def send_msg(_, ""), do: nil
   def send_msg(nick, msg) do
-    IO.inspect({"Casting", nick, msg})
+    #IO.inspect({"Casting", nick, msg})
     :gen_server.cast(:irc_bridge, {:send_msg, nick, msg})
   end
 
@@ -39,7 +39,12 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_cast({:send_msg, nick, msg}, state) do
-    ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "#{nick}: #{msg}")
+    msg
+    |> String.split("\n")
+    |> Enum.each(fn line ->
+      ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "#{nick}: #{line}")
+      Process.sleep(100)
+    end)
     {:noreply, state}
   end
 
@@ -53,6 +58,8 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:connected, _server, _port}, state) do
     IO.inspect("connecting bridge...")
+    #IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
+    Process.sleep(20)
     ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     {:noreply, state}
   end
@@ -67,19 +74,29 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:received, msg, %{nick: nick}, "#gt-dev"}, state) do
+  def handle_info({:received, msg, %{nick: nick, user: user}, "#gt-dev"}, state) do
     case msg do
       "!"<>_ -> :ok
       msg ->
+        if user === "~Gregorius" and msg === "cya" do
+          ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
+        end
+        msg = convert_message(msg)
         IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}")
         Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
+        message_extra(msg, state.client)
     end
     {:noreply, state}
   end
 
-  def handle_info({:me, action, %{nick: nick, user: _user}, "#gt-dev"}, state) do
+  def handle_info({:me, action, %{nick: nick, user: user}, "#gt-dev"}, state) do
+    if user === "~Gregorius" and String.starts_with?(action, "poofs") do
+      ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
+    end
+    action = convert_message(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
+    message_extra(action, state.client)
     {:noreply, state}
   end
 
@@ -91,7 +108,18 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:unrecognized, _type, _msg}, state) do
+  def handle_info({:unrecognized, type, msg}, state) do
+    IO.inspect("Unrecognized Message with type #{inspect type} and msg of: #{inspect msg}")
+    {:noreply, state}
+  end
+
+  def handle_info({:joined, chan, %{host: host, nick: nick, user: user}}, state) do
+    IO.inspect("#{chan}: User `#{user}` with nick `#{nick}` joined from `#{host}`")
+    {:noreply, state}
+  end
+
+  def handle_info({:quit, msg, %{host: host, nick: nick, user: user}}, state) do
+    IO.inspect("User `#{user}` with nick `#{nick}` at host `#{host}` quit with message: #{msg}")
     {:noreply, state}
   end
 
@@ -114,4 +142,55 @@ defmodule Overdiscord.IRC.Bridge do
     # ExIrc.Client.quit(state.client, "Disconnecting for controlled shutdown")
     ExIrc.Client.stop!(state.client)
   end
+
+
+  defp convert_message(msg) do
+    msg
+    |> String.replace(~R/\bbear989\b|\bbear989sr\b|\bbear\b/i, "<@225728625238999050>")
+  end
+
+  def message_extra(msg, client) do
+    Regex.scan(~r"https?://[^)\]\s]+", msg, [captures: :first])
+    |> Enum.map(fn
+      [url] ->
+        try do
+          case OpenGraph.parse(url) do
+          {:ok, %{description: desc, title: title, image: _image, url: _canurl} = og} ->
+              IO.inspect(og, label: :OpenGraph)
+              title = String.trim(to_string(List.first(String.split(title, "\n"))))
+              desc = String.trim(to_string(List.first(String.split(desc, "\n"))))
+              case {title, desc} do
+                {"", _} -> []
+                {"Imgur: " <> _, _} -> []
+                {_, "Imgur: " <> _} ->
+                  ExIrc.Client.msg(client, :privmsg, "#gt-dev", "Imgur: #{title}")
+                _ ->
+                  data =
+                    if title == desc do
+                      "<Link Title> #{title}"
+                    else
+                      "<Link Details> #{title} : #{desc}"
+                    end
+                  ExIrc.Client.msg(client, :privmsg, "#gt-dev", data)
+              end
+            err -> IO.inspect(err, label: :OpenGraphError)
+          end
+        rescue _ -> []
+        catch _ -> []
+        end
+      _ -> []
+     end)
+  end
+
+
+
+  defp farewells, do: [
+    "Fare thee well!",
+    "Enjoy!",
+    "Bloop!",
+    "Be well",
+    "Good bye",
+    "See you later",
+    "Have fun!",
+  ]
 end

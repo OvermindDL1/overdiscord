@@ -13,7 +13,8 @@ defmodule Overdiscord.Commands do
       content ->
         #IO.inspect("Msg dump: #{inspect msg}")
         IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
-        Overdiscord.IRC.Bridge.send_msg(username, content)
+        irc_content = get_msg_content_processed(msg)
+        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
         Enum.map(msg.attachments, fn %{filename: filename, size: size, url: url, proxy_url: _proxy_url}=_attachment ->
           size = Sizeable.filesize(size, spacer: "")
           Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
@@ -34,6 +35,26 @@ defmodule Overdiscord.Commands do
     use Overdiscord.Commands.GD
     Alchemy.Cogs.EventHandler.add_handler({:message_create, {__MODULE__, :on_msg}})
     {:ok, nil}
+  end
+
+  ## Helpers
+
+  def get_msg_content_processed(%Alchemy.Message{channel_id: channel_id, content: content} = msg) do
+    case Alchemy.Cache.guild_id(channel_id) do
+      {:error, reason} ->
+        IO.inspect("Unable to process guild_id: #{reason}\n\t#{msg}")
+        content
+      {:ok, guild_id} ->
+        Regex.replace(~r/<@(\d+)>/, content, fn full, user_id ->
+          case Alchemy.Cache.member(guild_id, user_id) do
+            {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
+              "@#{username}"
+            v ->
+              IO.inspect("Unable to get member of guild: #{inspect v}")
+              full
+          end
+        end)
+    end
   end
 
 end
