@@ -78,7 +78,7 @@ defmodule Overdiscord.IRC.Bridge do
     case msg do
       "!"<>_ -> :ok
       msg ->
-        if user === "~Gregorius" and msg === "cya" do
+        if user === "~Gregorius" and msg =~ ~r/(bye everyone)/ do
           ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
         end
         msg = convert_message(msg)
@@ -91,7 +91,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:me, action, %{nick: nick, user: user}, "#gt-dev"}, state) do
     if user === "~Gregorius" and String.starts_with?(action, "poofs") do
-      ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
+      #ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
     end
     action = convert_message(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
