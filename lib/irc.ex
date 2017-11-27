@@ -78,9 +78,7 @@ defmodule Overdiscord.IRC.Bridge do
     case msg do
       "!"<>_ -> :ok
       msg ->
-        if user === "~Gregorius" and msg =~ ~r/(bye everyone)/ do
-          ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
-        end
+        if(user === "~Gregorius", do: handle_greg(msg, state.client))
         msg = convert_message(msg)
         IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}")
         Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
@@ -90,9 +88,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info({:me, action, %{nick: nick, user: user}, "#gt-dev"}, state) do
-    if user === "~Gregorius" and String.starts_with?(action, "poofs") do
-      #ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", Enum.random(farewells()))
-    end
+    if(user === "~Gregorius", do: handle_greg(action, state.client))
     action = convert_message(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
@@ -180,6 +176,17 @@ defmodule Overdiscord.IRC.Bridge do
         end
       _ -> []
      end)
+end
+
+
+
+  defp handle_greg(msg, client) do
+    msg = String.downcase(msg)
+    cond do
+      IO.inspect(String.jaro_distance("good night/bye everyone o/", msg), label: :Distance) > 0.93 ->
+        ExIrc.Client.msg(client, :privmsg, "#gt-dev", Enum.random(farewells()))
+      true -> :ok
+    end
   end
 
 
