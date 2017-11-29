@@ -74,7 +74,7 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:received, msg, %{nick: nick, user: user}, "#gt-dev"}, state) do
+  def handle_info({:received, msg, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     case msg do
       "!"<>_ -> :ok
       msg ->
@@ -82,17 +82,17 @@ defmodule Overdiscord.IRC.Bridge do
         msg = convert_message(msg)
         IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}")
         Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
-        message_extra(msg, state.client)
+        message_extra(:msg, msg, auth, chan, state)
     end
     {:noreply, state}
   end
 
-  def handle_info({:me, action, %{nick: nick, user: user}, "#gt-dev"}, state) do
+  def handle_info({:me, action, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     if(user === "~Gregorius", do: handle_greg(action, state.client))
     action = convert_message(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
-    message_extra(action, state.client)
+    message_extra(:me, action, auth, chan, state.client)
     {:noreply, state}
   end
 
@@ -134,7 +134,7 @@ defmodule Overdiscord.IRC.Bridge do
 
 
   def terminate(reason, state) do
-    IO.inspect("Terminating IRC Bridge for reason: #{reason}")
+    IO.puts("Terminating IRC Bridge for reason: #{inspect reason}")
     # ExIrc.Client.quit(state.client, "Disconnecting for controlled shutdown")
     ExIrc.Client.stop!(state.client)
   end
@@ -145,38 +145,42 @@ defmodule Overdiscord.IRC.Bridge do
     |> String.replace(~R/\bbear989\b|\bbear989sr\b|\bbear\b/i, "<@225728625238999050>")
   end
 
-  def message_extra(msg, client) do
+
+  def message_cmd(call, args, auth, chan, state)
+  def message_cmd("wiki", args, auth, chan, state) do
+    term = URI.encode(args)
+    url = IO.inspect("https://en.wikipedia.org/wiki/#{term}")
+    ExIrc.Client.msg(state.client, :privmsg, chan, url)
+    case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :WikiSummary) do
+      nil -> "No information"
+      summary -> ExIrc.Client.msg(state.client, :privmsg, chan, summary)
+    end
+  end
+
+
+  def message_extra(:msg, "?" <> cmd, auth, chan, state) do
+    [call | args] = String.split(cmd, " ", [parts: 2])
+    args = String.trim(to_string(args))
+    message_cmd(call, args, auth, chan, state)
+  end
+
+  def message_extra(_type, msg, _auth, _chan, %{client: client} = state) do
     Regex.scan(~r"https?://[^)\]\s]+", msg, [captures: :first])
     |> Enum.map(fn
-      [url] ->
-        try do
-          case OpenGraph.parse(url) do
-          {:ok, %{description: desc, title: title, image: _image, url: _canurl} = og} ->
-              IO.inspect(og, label: :OpenGraph)
-              title = String.trim(to_string(List.first(String.split(title, "\n"))))
-              desc = String.trim(to_string(List.first(String.split(desc, "\n"))))
-              case {title, desc} do
-                {"", _} -> []
-                {"Imgur: " <> _, _} -> []
-                {_, "Imgur: " <> _} ->
-                  ExIrc.Client.msg(client, :privmsg, "#gt-dev", "Imgur: #{title}")
-                _ ->
-                  data =
-                    if title == desc do
-                      "<Link Title> #{title}"
-                    else
-                      "<Link Details> #{title} : #{desc}"
-                    end
-                  ExIrc.Client.msg(client, :privmsg, "#gt-dev", data)
-              end
-            err -> IO.inspect(err, label: :OpenGraphError)
-          end
-        rescue _ -> []
-        catch _ -> []
-        end
+       [url] ->
+         case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :Summary) do
+           nil -> nil
+           summary ->
+             if summary =~ ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
+               nil
+             else
+               ExIrc.Client.msg(client, :privmsg, "#gt-dev", summary)
+             end
+         end
       _ -> []
      end)
 end
+
 
 
 

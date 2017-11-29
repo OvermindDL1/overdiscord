@@ -11,7 +11,15 @@ defmodule Overdiscord do
     children = [
       worker(Overdiscord.IRC.Bridge, [client]),
       worker(Alchemy.Client, [System.get_env("OVERDISCORD_TOKEN"), []]),
-      worker(Overdiscord.Commands, [])
+      worker(Overdiscord.Commands, []),
+      worker(Cachex, [:summary_cache, [
+                         fallback: &Overdiscord.SiteParser.get_summary_cache_init/1,
+                         #default_ttl: :timer.hours(24),
+                         disable_ode: true,
+                         #ttl_interval: :timer.hours(1),
+                         limit: %Cachex.Limit{limit: 10000, reclaim: 0.1},
+                         record_stats: true,
+                       ]]),
     ]
 
     opts = [strategy: :one_for_one, name: Overdiscord.Supervisor]

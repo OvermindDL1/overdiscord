@@ -42,6 +42,7 @@ defmodule Overdiscord.Mixfile do
       {:sizeable, "~> 1.0"},
       {:meeseeks, "~> 0.7.2"},
       {:opengraph, "~> 0.1.0"},
+      {:cachex, "~> 2.1"},
     ]
   end
 end
