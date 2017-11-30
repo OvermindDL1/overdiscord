@@ -92,7 +92,7 @@ defmodule Overdiscord.IRC.Bridge do
     action = convert_message(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
-    message_extra(:me, action, auth, chan, state.client)
+    message_extra(:me, action, auth, chan, state)
     {:noreply, state}
   end
 
@@ -147,13 +147,27 @@ defmodule Overdiscord.IRC.Bridge do
 
 
   def message_cmd(call, args, auth, chan, state)
-  def message_cmd("wiki", args, auth, chan, state) do
-    term = URI.encode(args)
-    url = IO.inspect("https://en.wikipedia.org/wiki/#{term}")
-    ExIrc.Client.msg(state.client, :privmsg, chan, url)
-    case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :WikiSummary) do
-      nil -> "No information"
-      summary -> ExIrc.Client.msg(state.client, :privmsg, chan, summary)
+  def message_cmd("wiki", args, _auth, chan, state) do
+    url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}")
+    message_cmd_url_with_summary(url, chan, state.client)
+  end
+  def message_cmd("ftbwiki", args, _auth, chan, state) do
+    url = IO.inspect("https://ftb.gamepedia.com/#{URI.encode(args)}")
+    message_cmd_url_with_summary(url, chan, state.client)
+  end
+  def message_cmd("logs", "", _auth, chan, state) do
+    logmsg = ""
+    ExIrc.Client.msg(state.client, :privmsg, chan, logmsg)
+  end
+  def message_cmd(_, _, _, _, _) do
+    nil
+  end
+
+  def message_cmd_url_with_summary(url, chan, client) do
+    ExIrc.Client.msg(client, :privmsg, chan, url)
+    case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :UrlSummary) do
+      nil -> "No information found at URL"
+      summary -> ExIrc.Client.msg(client, :privmsg, chan, summary)
     end
   end
 
@@ -164,7 +178,8 @@ defmodule Overdiscord.IRC.Bridge do
     message_cmd(call, args, auth, chan, state)
   end
 
-  def message_extra(_type, msg, _auth, _chan, %{client: client} = state) do
+  def message_extra(_type, msg, _auth, chan, %{client: client} = state) do
+    # URL summary
     Regex.scan(~r"https?://[^)\]\s]+", msg, [captures: :first])
     |> Enum.map(fn
        [url] ->
@@ -178,9 +193,21 @@ defmodule Overdiscord.IRC.Bridge do
              end
          end
       _ -> []
-     end)
-end
+                                                               end)
 
+    # Reddit subreddit links
+    Regex.scan(~r"(^|[^/])(?<sr>r/\w*)($|[^/])"i, msg, [captures: :all])
+    |> Enum.map(fn
+      [_, _, sr, _] -> "https://www.reddit.com/#{sr}/"
+      _ -> false
+    end)
+    |> Enum.filter(&(&1))
+    |> Enum.join(" ")
+    |> (fn
+      "" -> nil
+      srs -> ExIrc.Client.msg(client, :privmsg, chan, srs)
+    end).()
+  end
 
 
 

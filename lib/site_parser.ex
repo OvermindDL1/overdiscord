@@ -34,8 +34,8 @@ defmodule Overdiscord.SiteParser do
           _ ->
             doc = Meeseeks.parse(body)
             with\
-              nil <- get_summary_opengraph(doc, opts),
               nil <- get_summary_title_and_description(doc, opts),
+              nil <- get_summary_opengraph(doc, opts),
               nil <- get_summary_first_paragraph(doc, opts),
               do: nil
         end
