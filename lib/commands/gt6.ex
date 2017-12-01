@@ -89,7 +89,7 @@ defmodule Overdiscord.Commands.GT6 do
            embed =
              Enum.reduce(changeset.entries, @blue_embed, fn
                entry, embed when is_binary(entry)-> field(embed, "", entry)
-               {type, description}, embed -> field(embed, type, description)
+               {type, description}, embed -> field(embed, type, String.slice(description, 0, 999))
              end)
              |> title("Gregtech 6 Changelog: #{changeset.version}")
              |> url(changeset.url)

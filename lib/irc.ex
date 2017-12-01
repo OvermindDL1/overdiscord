@@ -180,23 +180,27 @@ defmodule Overdiscord.IRC.Bridge do
 
   def message_extra(_type, msg, _auth, chan, %{client: client} = state) do
     # URL summary
-    Regex.scan(~r"https?://[^)\]\s]+", msg, [captures: :first])
+    Regex.scan(~r"https?://[^)\]\s]+"i, msg, [captures: :first])
     |> Enum.map(fn
-       [url] ->
-         case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :Summary) do
-           nil -> nil
-           summary ->
-             if summary =~ ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
-               nil
-             else
-               ExIrc.Client.msg(client, :privmsg, "#gt-dev", summary)
-             end
+      [url] ->
+         if url =~ ~r/xkcd.com/i do
+           []
+         else
+           case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :Summary) do
+             nil -> nil
+             summary ->
+               if summary =~ ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
+                 nil
+               else
+                 ExIrc.Client.msg(client, :privmsg, "#gt-dev", summary)
+               end
+           end
          end
       _ -> []
                                                                end)
 
     # Reddit subreddit links
-    Regex.scan(~r"(^|[^/])(?<sr>r/\w*)($|[^/])"i, msg, [captures: :all])
+    Regex.scan(~r"(^|[^/]\b)(?<sr>r/[a-zA-Z0-9_-]{4,})($|[^/])"i, msg, [captures: :all])
     |> Enum.map(fn
       [_, _, sr, _] -> "https://www.reddit.com/#{sr}/"
       _ -> false
