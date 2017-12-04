@@ -156,8 +156,16 @@ defmodule Overdiscord.IRC.Bridge do
     message_cmd_url_with_summary(url, chan, state.client)
   end
   def message_cmd("logs", "", _auth, chan, state) do
-    logmsg = ""
-    ExIrc.Client.msg(state.client, :privmsg, chan, logmsg)
+    msg = "Please supply any and all logs"
+    ExIrc.Client.msg(state.client, :privmsg, chan, msg)
+  end
+  def message_cmd("factorio", "demo", _auth, chan, state) do
+    msg = "Try the Factorio Demo at https://factorio.com/download-demo and you'll love it!"
+    ExIrc.Client.msg(state.client, :privmsg, chan, msg)
+  end
+  def message_cmd("factorio", _args, _auth, chan, state) do
+    msg = "Factorio is awesome!  See the demonstration video at https://factorio.com or better yet grab the demo at https://factorio.com/download-demo and give it a try!"
+    ExIrc.Client.msg(state.client, :privmsg, chan, msg)
   end
   def message_cmd(_, _, _, _, _) do
     nil
@@ -178,7 +186,7 @@ defmodule Overdiscord.IRC.Bridge do
     message_cmd(call, args, auth, chan, state)
   end
 
-  def message_extra(_type, msg, _auth, chan, %{client: client} = state) do
+  def message_extra(_type, msg, _auth, chan, %{client: client} = _state) do
     # URL summary
     Regex.scan(~r"https?://[^)\]\s]+"i, msg, [captures: :first])
     |> Enum.map(fn

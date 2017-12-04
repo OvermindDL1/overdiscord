@@ -78,6 +78,7 @@ defmodule Overdiscord.SiteParser do
   end
 
   defp get_summary_title_and_description(doc, _opts) do
+    imgur = "Imgur: The most awesome images on the Internet"
     with\
       te when te != nil <- Meeseeks.one(doc, css("title")),
       de when de != nil <- Meeseeks.one(doc, css("meta[name='description']")),
@@ -85,7 +86,12 @@ defmodule Overdiscord.SiteParser do
         Meeseeks.own_text(te) |> get_first_line_trimmed(),
       d when d != nil and d != "" <-
         Meeseeks.attr(de, "content") |> get_first_line_trimmed(),
-      do: "#{t} : #{d}"
+      do: (case {t, d} do
+            {^imgur, ^imgur} -> nil
+            {^imgur, _} -> d
+            {_, ^imgur} -> t
+            _ -> "#{t} : #{d}"
+          end)
   end
 
   defp get_summary_first_paragraph(doc, _opts) do
