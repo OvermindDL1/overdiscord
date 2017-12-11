@@ -146,6 +146,12 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
 
+  def send_msg_both(msg, chan, client) do
+    ExIrc.Client.msg(client, :privmsg, chan, msg)
+    Alchemy.Client.send_message("320192373437104130", msg)
+  end
+
+
   def message_cmd(call, args, auth, chan, state)
   def message_cmd("wiki", args, _auth, chan, state) do
     url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}")
@@ -157,15 +163,27 @@ defmodule Overdiscord.IRC.Bridge do
   end
   def message_cmd("logs", "", _auth, chan, state) do
     msg = "Please supply any and all logs"
-    ExIrc.Client.msg(state.client, :privmsg, chan, msg)
+    send_msg_both(msg, chan, state.client)
   end
   def message_cmd("factorio", "demo", _auth, chan, state) do
     msg = "Try the Factorio Demo at https://factorio.com/download-demo and you'll love it!"
-    ExIrc.Client.msg(state.client, :privmsg, chan, msg)
+    send_msg_both(msg, chan, state.client)
   end
   def message_cmd("factorio", _args, _auth, chan, state) do
     msg = "Factorio is awesome!  See the demonstration video at https://factorio.com or better yet grab the demo at https://factorio.com/download-demo and give it a try!"
-    ExIrc.Client.msg(state.client, :privmsg, chan, msg)
+    send_msg_both(msg, chan, state.client)
+  end
+  def message_cmd("mcve", _args, _auth, chan, state) do
+    msg = "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve"
+    send_msg_both(msg, chan, state.client)
+  end
+  def message_cmd("sscce", _args, _auth, chan, state) do
+    msg = "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/"
+    send_msg_both(msg, chan, state.client)
+  end
+  def message_cmd("xy", _args, _atuh, chan, state) do
+    msg = "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/"
+    send_msg_both(msg, chan, state.client)
   end
   def message_cmd(_, _, _, _, _) do
     nil
@@ -225,8 +243,10 @@ defmodule Overdiscord.IRC.Bridge do
 
   defp handle_greg(msg, client) do
     msg = String.downcase(msg)
+    last_msg_part = String.slice(msg, -26, 26)
     cond do
-      IO.inspect(String.jaro_distance("good night/bye everyone o/", msg), label: :Distance) > 0.93 ->
+      IO.inspect(String.jaro_distance("good night/bye everyone o/", last_msg_part), label: :Distance) > 0.87 or
+      msg =~ ~r"bye everyone"i  ->
         ExIrc.Client.msg(client, :privmsg, "#gt-dev", Enum.random(farewells()))
       true -> :ok
     end

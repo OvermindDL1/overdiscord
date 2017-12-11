@@ -45,7 +45,7 @@ defmodule Overdiscord.Commands do
         IO.inspect("Unable to process guild_id: #{reason}\n\t#{msg}")
         content
       {:ok, guild_id} ->
-        Regex.replace(~r/<@(\d+)>/, content, fn full, user_id ->
+        Regex.replace(~r/<@([0-9!]+)>/, content, fn full, user_id ->
           case Alchemy.Cache.member(guild_id, user_id) do
             {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
               "@#{username}"

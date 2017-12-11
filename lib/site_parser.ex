@@ -20,7 +20,7 @@ defmodule Overdiscord.SiteParser do
   end
 
   def get_summary(url, opts \\ %{recursion_limit: 4}) do
-    %{body: body, status_code: status_code, headers: headers} = response = HTTPoison.get!(url)
+    %{body: body, status_code: status_code, headers: headers} = _response = HTTPoison.get!(url)
     case status_code do
       code when code >= 300 and code <= 399 ->
         case :proplists.get_value("Location", headers) do
@@ -113,7 +113,7 @@ defmodule Overdiscord.SiteParser do
     |> String.trim()
     |> case do
          "" -> nil
-         "Imgur: The most awesome images on the Internet." -> nil
+         "Imgur: " <> _ -> nil
          result -> result
        end
   end
