@@ -43,10 +43,14 @@ defmodule Overdiscord.IRC.Bridge do
   def handle_cast({:send_msg, nick, msg}, state) do
     msg
     |> String.split("\n")
+    |> Enum.flat_map(&split_at_irc_max_length/1)
     |> Enum.each(fn line ->
-      ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "#{nick}: #{line}")
+      Enum.map(split_at_irc_max_length("#{nick}: #{line}"), fn irc_msg ->
+        ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", irc_msg)
+        Process.sleep(200)
+      end)
       message_extra(:send_msg, msg, nick, "#gt-dev", state)
-      Process.sleep(100)
+      Process.sleep(200)
     end)
     {:noreply, state}
   end
@@ -231,7 +235,7 @@ defmodule Overdiscord.IRC.Bridge do
                 msgs = Overdiscord.Commands.GT6.format_changelog_as_text(changelog)
                 Enum.map(msgs, fn msg ->
                   Enum.map(String.split(msg, ["\r\n", "\n"]), fn msg ->
-                    Enum.map(Regex.scan(~R"\b.{1,420}\b\W?"i, msg, capture: :first), fn msg -> # Actually 425, but safety margin
+                    Enum.map(split_at_irc_max_length(msg), fn msg ->
                       ExIrc.Client.msg(state.client, :privmsg, chan, msg)
                       Process.sleep(200)
                     end)
@@ -345,6 +349,11 @@ defmodule Overdiscord.IRC.Bridge do
         ExIrc.Client.msg(client, :privmsg, "#gt-dev", Enum.random(farewells()))
       true -> :ok
     end
+  end
+
+
+  def split_at_irc_max_length(msg) do
+    Regex.scan(~R"\b.{1,420}\b\W?"i, msg, capture: :first)# Actually 425, but safety margin
   end
 
 
