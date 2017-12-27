@@ -34,6 +34,11 @@ defmodule Overdiscord.Commands do
     use Overdiscord.Commands.GT6
     use Overdiscord.Commands.GD
     Alchemy.Cogs.EventHandler.add_handler({:message_create, {__MODULE__, :on_msg}})
+    spawn(fn ->
+      Process.sleep(5000)
+      # Load entire userlist, at a rate of 100 per minutes because of discord limits
+      Alchemy.Cache.load_guild_members(Alchemy.Cache.guild_id(Overdiscord.IRC.Bridge.alchemy_channel()), "", 0)
+    end)
     {:ok, nil}
   end
 
@@ -50,8 +55,13 @@ defmodule Overdiscord.Commands do
             {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
               "@#{username}"
             v ->
-              IO.inspect("Unable to get member of guild: #{inspect v}")
-              full
+              case Alchemy.Client.get_member(guild_id, user_id) do
+                {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
+                  "@#{username}"
+                err ->
+                  IO.inspect("Unable to get member of guild: #{inspect v}")
+                  full
+              end
           end
         end)
     end

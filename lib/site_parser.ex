@@ -19,6 +19,12 @@ defmodule Overdiscord.SiteParser do
        end
   end
 
+  def clear_cache() do
+    Cachex.clear(:summary_cache)
+  end
+
+
+
   def get_summary(url, opts \\ %{recursion_limit: 4}) do
     %{body: body, status_code: status_code, headers: headers} = _response = HTTPoison.get!(url)
     case status_code do
@@ -86,7 +92,7 @@ defmodule Overdiscord.SiteParser do
         Meeseeks.own_text(te) |> get_first_line_trimmed(),
       d when d != nil and d != "" <-
         Meeseeks.attr(de, "content") |> get_first_line_trimmed(),
-      do: (case {t, d} do
+      do: (case IO.inspect{t, d} do
             {^imgur, ^imgur} -> nil
             {^imgur, _} -> d
             {_, ^imgur} -> t
@@ -114,7 +120,8 @@ defmodule Overdiscord.SiteParser do
     |> case do
          "" -> nil
          "Imgur: " <> _ -> nil
-         result -> result
+         "Use old embed code" -> nil
+         result -> result |> IO.inspect(label: :Blah)
        end
   end
 end

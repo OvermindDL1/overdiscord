@@ -1,4 +1,6 @@
 defmodule Overdiscord.IRC.Bridge do
+  # TODO:  XKCD mapping
+
   defmodule State do
     defstruct [
       host: "irc.esper.net",
@@ -43,6 +45,7 @@ defmodule Overdiscord.IRC.Bridge do
     |> String.split("\n")
     |> Enum.each(fn line ->
       ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "#{nick}: #{line}")
+      message_extra(:send_msg, msg, nick, "#gt-dev", state)
       Process.sleep(100)
     end)
     {:noreply, state}
@@ -76,20 +79,36 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:received, msg, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     case msg do
-      "!"<>_ -> :ok
-      msg ->
+      "!"<> _ -> :ok
+      omsg ->
         if(user === "~Gregorius", do: handle_greg(msg, state.client))
-        msg = convert_message(msg)
+        msg = convert_message_to_discord(msg)
         IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}")
         Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
-        message_extra(:msg, msg, auth, chan, state)
+        message_extra(:msg, omsg, auth, chan, state)
+    end
+    {:noreply, state}
+  end
+
+  def handle_info({:received, msg, %{nick: _nick, user: _user} = auth, chan}, state) do
+    case msg do
+      "!" <> _ -> :ok
+      msg -> message_extra(:msg, msg, auth, chan, state)
+    end
+    {:noreply, state}
+  end
+
+  def handle_info({:received, msg, %{nick: nick, user: _user} = auth}, state) do
+    case msg do
+      "!" <> _ -> :ok
+      msg -> message_extra(:msg, msg, auth, nick, state)
     end
     {:noreply, state}
   end
 
   def handle_info({:me, action, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     if(user === "~Gregorius", do: handle_greg(action, state.client))
-    action = convert_message(action)
+    action = convert_message_to_discord(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
     message_extra(:me, action, auth, chan, state)
@@ -140,15 +159,37 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
 
-  defp convert_message(msg) do
+  defp convert_message_to_discord(msg) do
+    msg =
+      Regex.replace(~R/([^<]|^)\B@([a-zA-Z0-9]+)\b/, msg, fn(full, pre, username) ->
+        down_username = String.downcase(username)
+        case Alchemy.Cache.search(:members, fn
+          %{user: %{username: ^username}} -> true
+          %{user: %{username: discord_username}} ->
+            down_username == String.downcase(discord_username)
+          _ -> false
+        end) do
+          [%{user: %{id: id}}] -> [pre, ?<, ?@, id, ?>]
+          s ->
+            IO.inspect(s, label: :MemberNotFound)
+            full
+        end
+      end)
+
     msg
     |> String.replace(~R/\bbear989\b|\bbear989sr\b|\bbear\b/i, "<@225728625238999050>")
+    |> String.replace(~R/\bqwertygiy\b|\bqwerty\b|\bqwertz\b/i, "<@80832726017511424>")
+    |> String.replace(~R/\bandyafw\b|\bandy\b/i, "<@179586256752214016>")
+    |> String.replace(~R/\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
   end
 
 
+  def alchemy_channel(), do: "320192373437104130"
+
   def send_msg_both(msg, chan, client) do
     ExIrc.Client.msg(client, :privmsg, chan, msg)
-    Alchemy.Client.send_message("320192373437104130", msg)
+    Alchemy.Client.send_message(alchemy_channel(), msg)
+    nil
   end
 
 
@@ -173,20 +214,74 @@ defmodule Overdiscord.IRC.Bridge do
     msg = "Factorio is awesome!  See the demonstration video at https://factorio.com or better yet grab the demo at https://factorio.com/download-demo and give it a try!"
     send_msg_both(msg, chan, state.client)
   end
-  def message_cmd("mcve", _args, _auth, chan, state) do
-    msg = "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve"
-    send_msg_both(msg, chan, state.client)
-  end
-  def message_cmd("sscce", _args, _auth, chan, state) do
-    msg = "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/"
-    send_msg_both(msg, chan, state.client)
-  end
-  def message_cmd("xy", _args, _atuh, chan, state) do
-    msg = "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/"
-    send_msg_both(msg, chan, state.client)
-  end
-  def message_cmd(_, _, _, _, _) do
-    nil
+  def message_cmd(cmd, args, auth, chan, state) do
+    cache = %{ # This is not allocated on every invocation, it is interned
+      "changelog" => fn(_cmd, args, _auth, chan, state) ->
+        case args do
+          "link" -> "https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/changelog.txt"
+          _ ->
+            case Overdiscord.Commands.GT6.get_changelog_version(args) do
+              {:error, msgs} ->
+                Enum.map(msgs, &send_msg_both("> " <> &1, chan, state.client))
+                nil
+              %{changesets: []} ->
+                send_msg_both("Changelog has no changesets in it, check:  https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/changelog.txt", chan, state.client)
+                nil
+              {:ok, changelog} ->
+                msgs = Overdiscord.Commands.GT6.format_changelog_as_text(changelog)
+                Enum.map(msgs, fn msg ->
+                  Enum.map(String.split(msg, ["\r\n", "\n"]), fn msg ->
+                    Enum.map(Regex.scan(~R"\b.{1,420}\b\W?"i, msg, capture: :first), fn msg -> # Actually 425, but safety margin
+                      ExIrc.Client.msg(state.client, :privmsg, chan, msg)
+                      Process.sleep(200)
+                    end)
+                  end)
+                end)
+                embed = Overdiscord.Commands.GT6.format_changelog_as_embed(changelog)
+                Alchemy.Client.send_message(alchemy_channel(), "", [{:embed, embed}])
+                nil
+            end
+        end
+      end,
+      "mcve" => "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve",
+      "sscce" => "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/",
+      "xy" => "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/",
+      "bds" => [
+        "Baby duck syndrome is the tendency for computer users to 'imprint' on the first system they learn, then judge other systems by their similarity to that first system.  The result is that users generally prefer systems similar to those they learned on and dislike unfamiliar systems.  It can make it hard for you to make the most rational decision about which software to use or when the learning curve of a given thing is",
+        "worth the climb.  In general, it makes the familiar seem more efficient and the unfamiliar less so.  In the short run, this is probably true -- if you're late for a deadline, the best thing to do is not to switch to a new operating system in the hopes that your productivity will increase.",
+        "In the long run, it's worth trying a few things knowing that they won't all work out, but hoping to find tools that match your style best. -- https://blog.codinghorror.com/the-software-imprinting-dilemma/",
+      ],
+      "patreon" => "https://www.patreon.com/gregoriust",
+      "website" => "https://gregtech.overminddl1.com/",
+      "downloads" => "https://gregtech.overminddl1.com/1.7.10/",
+      "secret" => "https://gregtech.overminddl1.com/secretdownloads/",
+      "bear" => "https://gaming.youtube.com/c/aBear989/live",
+    }
+
+    case Map.get(cache, cmd) do
+      nil ->
+        case cmd do
+          "help" ->
+            if args == "" do
+              msg = cache
+                |> Map.keys()
+                |> Enum.join(" ")
+              send_msg_both("Valid commands: #{msg}", chan, state.client)
+            else
+              nil
+            end
+          _ -> nil
+        end
+      msg when is_binary(msg) -> send_msg_both("> " <> msg, chan, state.client)
+      [_|_] = msgs -> Enum.map(msgs, &send_msg_both("> " <> &1, chan, state.client))
+      fun when is_function(fun, 5) ->
+        case fun.(cmd, args, auth, chan, state) do
+          nil -> nil
+          str when is_binary(str) -> send_msg_both("> " <> str, chan, state.client)
+          [] -> nil
+          # [_|_] = lst -> nil
+        end
+     end
   end
 
   def message_cmd_url_with_summary(url, chan, client) do
