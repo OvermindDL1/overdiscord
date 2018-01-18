@@ -1,4 +1,5 @@
 defmodule Overdiscord.IRC.Bridge do
+  # TODO:  Janitor for db: time-series
   # TODO:  XKCD mapping
 
   defmodule State do
@@ -11,6 +12,10 @@ defmodule Overdiscord.IRC.Bridge do
       name: "overbot",
       ready: false,
       client: nil,
+      db: nil,
+      meta: %{
+        logouts: %{},
+      },
     ]
   end
 
@@ -26,13 +31,31 @@ defmodule Overdiscord.IRC.Bridge do
     :gen_server.cast(:irc_bridge, :list_users)
   end
 
-  def start_link(client, state \\ %State{}) do
+  def get_db() do
+    :gen_server.call(:irc_bridge, :get_db)
+  end
+
+  def start_link(state \\ %State{}) do
     IO.inspect("Launching IRC Bridge")
-    :gen_server.start_link({:local, :irc_bridge}, __MODULE__, %{state | client: client}, [])
+    :gen_server.start_link({:local, :irc_bridge}, __MODULE__, state, [])
   end
 
 
   def init(state) do
+    {:ok, client} = ExIrc.start_link!()
+    db =
+      case Exleveldb.open("_db") do
+        {:ok, db} -> db
+        {:error, reason} ->
+          IO.inspect(reason, label: :DB_OPEN_ERROR)
+          case Exleveldb.repair("_db") do
+            :ok -> :ok
+            {:error, reason} -> IO.inspect(reason, label: :DB_REPAIR_ERROR)
+          end
+          {:ok, db} = Exleveldb.open("_db")
+          db
+      end
+    state = %{state | client: client, db: db}
     IO.inspect("Starting IRC Bridge... #{inspect self()}")
     ExIrc.Client.add_handler(state.client, self())
 
@@ -40,13 +63,20 @@ defmodule Overdiscord.IRC.Bridge do
     {:ok, state}
   end
 
+  def handle_call(:get_db, _from, state) do
+    {:reply, state.db, state}
+  end
+
   def handle_cast({:send_msg, nick, msg}, state) do
+    db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
     msg
     |> String.split("\n")
-    |> Enum.flat_map(&split_at_irc_max_length/1)
+    #|> Enum.flat_map(&split_at_irc_max_length/1)
     |> Enum.each(fn line ->
       Enum.map(split_at_irc_max_length("#{nick}: #{line}"), fn irc_msg ->
+        # ExIrc.Client.nick(state.client, "#{nick}{Discord}")
         ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", irc_msg)
+        # ExIrc.Client.nick(state.client, state.nick)
         Process.sleep(200)
       end)
       message_extra(:send_msg, msg, nick, "#gt-dev", state)
@@ -56,7 +86,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_cast(:list_users, state) do
-    users= ExIrc.Client.channel_users(state.client, "#gt-dev")
+    users = ExIrc.Client.channel_users(state.client, "#gt-dev")
     users = Enum.join(users, " ")
     Alchemy.Client.send_message("320192373437104130", "Users: #{users}")
     {:noreply, state}
@@ -66,7 +96,7 @@ defmodule Overdiscord.IRC.Bridge do
   def handle_info({:connected, _server, _port}, state) do
     IO.inspect("connecting bridge...")
     #IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
-    Process.sleep(20)
+    Process.sleep(200)
     ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     {:noreply, state}
   end
@@ -82,6 +112,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info({:received, msg, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
+    db_user_messaged(state, auth, msg)
     case msg do
       "!"<> _ -> :ok
       omsg ->
@@ -111,6 +142,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info({:me, action, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
+    db_user_messaged(state, auth, action)
     if(user === "~Gregorius", do: handle_greg(action, state.client))
     action = convert_message_to_discord(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
@@ -134,11 +166,30 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:joined, chan, %{host: host, nick: nick, user: user}}, state) do
     IO.inspect("#{chan}: User `#{user}` with nick `#{nick}` joined from `#{host}`")
+    case db_get(state, :kv, {:joined, nick}) do
+      nil ->
+        send_msg_both("Welcome to the \"GregoriusTechneticies Dev Chat\"!  Enjoy your stay, #{nick}!", chan, state.client)
+      _ -> :ok
+    end
+    db_put(state, :kv, {:joined, nick}, NaiveDateTime.utc_now())
+    db_put(state, :kv, {:joined, user}, NaiveDateTime.utc_now())
+    #last = {_, s, _} = state.meta.logouts[host] || 0
+    #last = :erlang.setelement(2, last, s+(60*5))
+    #if chan == "#gt-dev-test" and :erlang.now() > last do
+    #  ExIrc.Client.msg(state.client, :privmsg, chan, "Welcome #{nick}!")
+    #end
+    {:noreply, state}
+  end
+
+  def handle_info({:parted, chan, %{host: host, nick: nick, user: user}}, state) do
+    IO.inspect("#{chan}: User `#{user}` with nick `#{nick} parted from `#{host}`")
+    db_put(state, :kv, {:parted, user}, NaiveDateTime.utc_now())
     {:noreply, state}
   end
 
   def handle_info({:quit, msg, %{host: host, nick: nick, user: user}}, state) do
     IO.inspect("User `#{user}` with nick `#{nick}` at host `#{host}` quit with message: #{msg}")
+    #state = put_in(state.meta.logouts[host], :erlang.now())
     {:noreply, state}
   end
 
@@ -167,16 +218,24 @@ defmodule Overdiscord.IRC.Bridge do
     msg =
       Regex.replace(~R/([^<]|^)\B@([a-zA-Z0-9]+)\b/, msg, fn(full, pre, username) ->
         down_username = String.downcase(username)
-        case Alchemy.Cache.search(:members, fn
-          %{user: %{username: ^username}} -> true
-          %{user: %{username: discord_username}} ->
-            down_username == String.downcase(discord_username)
-          _ -> false
-        end) do
-          [%{user: %{id: id}}] -> [pre, ?<, ?@, id, ?>]
-          s ->
-            IO.inspect(s, label: :MemberNotFound)
-            full
+        try do
+          case Alchemy.Cache.search(:members, fn
+                %{user: %{username: ^username}} -> true
+                %{user: %{username: discord_username}} ->
+                  down_username == String.downcase(discord_username)
+                _ -> false
+              end) do
+            [%{user: %{id: id}}] -> [pre, ?<, ?@, id, ?>]
+            s ->
+              IO.inspect(s, label: :MemberNotFound)
+              full
+          end
+        rescue r ->
+          IO.inspect(r, label: :ERROR_ALCHEMY_EXCEPTION)
+          full
+        catch e ->
+          IO.inspect(e, label: :ERROR_ALCHEMY)
+          full
         end
       end)
 
@@ -247,6 +306,60 @@ defmodule Overdiscord.IRC.Bridge do
             end
         end
       end,
+      "list" => fn(_cmd, _args, _auth, chan, state) ->
+        try do
+          names =
+            Alchemy.Cache.search(:members, &(&1.user.bot == false))
+            |> Enum.map(&(&1.user.username))
+            |> Enum.join("` `")
+          ExIrc.Client.msg(state.client, :privmsg, chan, "Discord Names: `#{names}`")
+          nil
+        rescue r ->
+            IO.inspect(r, label: :DiscordNameCacheError)
+          ExIrc.Client.msg(state.client, :privmsg, chan, "Discord name server query is not responding, try later")
+          nil
+        end
+      end,
+      "lastseen" => fn(_cmd, arg, _auth, chan, state) ->
+        arg = String.trim(arg)
+        case db_get(state, :kv, {:lastseen, arg}) do
+          nil -> send_msg_both("> `#{arg}` has not been seen speaking before", chan, state.client)
+          date ->
+            now = NaiveDateTime.utc_now()
+            diff_sec = NaiveDateTime.diff(now, date)
+            diff =
+              cond do
+              diff_sec < 60 -> "#{diff_sec} seconds ago"
+              diff_sec < (60*60) -> "#{div(diff_sec, 60)} minutes ago"
+              diff_sec < (60*60*24) -> "#{div(diff_sec, 60*60)} hours ago"
+              true -> "#{div(diff_sec, 60*60*24)} days ago"
+              end
+            send_msg_both("> `#{arg}` last said something #{diff} at: #{date} GMT", chan, state.client)
+        end
+      end,
+      "setphrase" => fn(cmd, args, auth, chan, state) ->
+        case auth do
+          %{host: "id-16796."<>_, user: "uid16796"} -> true
+          %{host: "ltea-047-064-006-094.pools.arcor-ip.net"} -> true
+          _ -> false
+        end
+        |> if do
+          case String.split(args, " ", parts: 2) |> Enum.map(&String.trim/1) |> Enum.filter(&(&1!="")) do
+            [] -> send_msg_both("> Format: #{cmd} <phrase-cmd> {phrase}\nIf the phraase is missing or blank then it deletes the command", chan, state.client)
+            [cmd] ->
+              db_put(state, :set_remove, :phrases, cmd)
+              db_delete(state, :kv, {:phrase, cmd})
+              send_msg_both("> #{cmd} removed if it existed", chan, state.client)
+            [cmd, phrase] ->
+              db_put(state, :set_add, :phrases, cmd)
+              db_put(state, :kv, {:phrase, cmd}, phrase)
+              send_msg_both("> #{cmd} added as a phrase", chan, state.client)
+          end
+        else
+          send_msg_both("> You don't have access", chan, state.client)
+        end
+        nil
+      end,
       "mcve" => "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve",
       "sscce" => "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/",
       "xy" => "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/",
@@ -260,6 +373,8 @@ defmodule Overdiscord.IRC.Bridge do
       "downloads" => "https://gregtech.overminddl1.com/1.7.10/",
       "secret" => "https://gregtech.overminddl1.com/secretdownloads/",
       "bear" => "https://gaming.youtube.com/c/aBear989/live",
+      "discordstatus" => "https://discord.statuspage.io/",
+      "semver" => "https://semver.org/",
     }
 
     case Map.get(cache, cmd) do
@@ -274,7 +389,12 @@ defmodule Overdiscord.IRC.Bridge do
             else
               nil
             end
-          _ -> nil
+          _ ->
+            # Check for phrases
+            case db_get(state, :kv, {:phrase, cmd}) do
+              nil -> nil
+              phrase -> send_msg_both("> #{phrase}", chan, state.client)
+            end
         end
       msg when is_binary(msg) -> send_msg_both("> " <> msg, chan, state.client)
       [_|_] = msgs -> Enum.map(msgs, &send_msg_both("> " <> &1, chan, state.client))
@@ -353,9 +473,107 @@ defmodule Overdiscord.IRC.Bridge do
 
 
   def split_at_irc_max_length(msg) do
-    Regex.scan(~R"\b.{1,420}\b\W?"i, msg, capture: :first)# Actually 425, but safety margin
+    # TODO: Look into this more, fails on edge cases...
+    #IO.inspect(msg, label: :Unicode?)
+    #Regex.scan(~R".{1,420}\s\W?"iu, msg, capture: :first)# Actually 425, but safety margin
+    #[[msg]]
+    Regex.scan(~R".{1,419}\S(\s|$)"iu, msg, capture: :first)
   end
 
+
+  defp db_put(state = %{db: db}, type, key, value) do
+    db_put(db, type, key, value)
+    state
+  end
+  defp db_put(db, :timeseries, key, value) when is_integer(value) do
+    now = NaiveDateTime.utc_now()
+    key = :erlang.term_to_binary({:ts, key, now.year, now.month, now.day, now.hour})
+    oldValue =
+      case Exleveldb.get(db, key) do
+        :not_found -> 0
+        {:ok, s} -> String.to_integer(s)
+      end
+    value = to_string(oldValue + value)
+    Exleveldb.put(db, key, value)
+    db
+  end
+  defp db_put(db, :kv, key, value) do
+    key = :erlang.term_to_binary({:kv, key})
+    value = :erlang.term_to_binary(value)
+    Exleveldb.put(db, key, value)
+  end
+  defp db_put(db, :set_add, key, value) do
+    key = :erlang.term_to_binary({:set, key})
+    oldValues =
+      case Exleveldb.get(db, key) do
+        :not_found -> %{}
+        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+      end
+    values = Map.put(oldValues, value, 1)
+    Exleveldb.put(db, key, values)
+    db
+  end
+  defp db_put(db, :set_remove, key, value) do
+    key = :erlang.term_to_binary({:set, key})
+    case Exleveldb.get(db, key) do
+      :not_found -> db
+      {:ok, values} ->
+        oldValues = :erlang.binary_to_term(values, [:safe])
+        values = Map.delete(oldValues, value)
+        Exleveldb.put(db, key, values)
+    end
+  end
+  defp db_put(db, type, key, value) do
+    IO.inspect("Invalid DB put type of `#{inspect type}` of key `#{inspect key}` with value: #{inspect value}", label: :ERROR_DB_TYPE)
+    db
+  end
+
+  defp db_timeseries_inc(db, key) do
+    db_put(db, :timeseries, key, 1)
+  end
+
+  defp db_get(%{db: db}, type, key) do
+    db_get(db, type, key)
+  end
+  defp db_get(db, :kv, key) do
+    key = :erlang.term_to_binary({:kv, key})
+    case Exleveldb.get(db, key) do
+      :not_found -> nil
+      {:ok, value} -> :erlang.binary_to_term(value, [:safe])
+    end
+  end
+  defp db_get(db, :set, key) do
+    key = :erlang.term_to_binary({:set, key})
+    case Exleveldb.get(db, key) do
+      :not_found -> []
+      {:ok, values} ->
+        values = :erlang.binary_to_term(values, [:safe])
+        Map.keys(values)
+
+    end
+  end
+  defp db_get(_db, type, key) do
+    IO.inspect("Invalid DB get type for `#{inspect type}` of key `#{inspect key}`", label: :ERROR_DB_TYPE)
+    nil
+  end
+
+  defp db_delete(%{db: db}, type, key) do
+    db_delete(db, type, key)
+  end
+  defp db_delete(db, :kv, key) do
+    key = :erlang.term_to_binary({:kv, key})
+    Exleveldb.delete(db, key)
+  end
+  defp db_delete(_db, type, key) do
+    IO.inspect("Invalid DB delete type for `#{inspect type}` of key `#{inspect key}`", label: :ERROR_DB_TYPE)
+    nil
+  end
+
+
+  defp db_user_messaged(db, auth, _msg) do
+    db_timeseries_inc(db, auth.nick)
+    db_put(db, :kv, {:lastseen, auth.nick}, NaiveDateTime.utc_now())
+  end
 
 
   defp farewells, do: [

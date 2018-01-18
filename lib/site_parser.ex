@@ -40,8 +40,9 @@ defmodule Overdiscord.SiteParser do
           _ ->
             doc = Meeseeks.parse(body)
             with\
-              nil <- get_summary_title_and_description(doc, opts),
               nil <- get_summary_opengraph(doc, opts),
+              nil <- get_summary_title_and_description(doc, opts),
+              #nil <- get_summary_opengraph(doc, opts),
               nil <- get_summary_first_paragraph(doc, opts),
               do: nil
         end
@@ -90,12 +91,14 @@ defmodule Overdiscord.SiteParser do
       de when de != nil <- Meeseeks.one(doc, css("meta[name='description']")),
       t when t != nil and t != "" <-
         Meeseeks.own_text(te) |> get_first_line_trimmed(),
-      d when d != nil and d != "" <-
+      d <- #when d != nil and d != "" <-
         Meeseeks.attr(de, "content") |> get_first_line_trimmed(),
-      do: (case IO.inspect{t, d} do
+      do: (case {t, d} do
             {^imgur, ^imgur} -> nil
             {^imgur, _} -> d
-            {_, ^imgur} -> t
+             {_, ^imgur} -> t
+            {_, nil} -> t
+             {_, ""} -> t
             _ -> "#{t} : #{d}"
           end)
   end
@@ -121,7 +124,7 @@ defmodule Overdiscord.SiteParser do
          "" -> nil
          "Imgur: " <> _ -> nil
          "Use old embed code" -> nil
-         result -> result |> IO.inspect(label: :Blah)
+         result -> result
        end
   end
 end

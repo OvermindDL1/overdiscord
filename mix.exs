@@ -36,13 +36,15 @@ defmodule Overdiscord.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:alchemy, "~> 0.6.0", hex: :discord_alchemy},
+      {:alchemy, "~> 0.6.1", hex: :discord_alchemy},
       {:httpoison, "~> 0.12.0", override: true},
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
       {:meeseeks, "~> 0.7.2"},
       {:opengraph, "~> 0.1.0"},
       {:cachex, "~> 2.1"},
+      {:exsync, "~> 0.2.1", only: :dev},
+      {:exleveldb, "~> 0.12.2"},
     ]
   end
 end

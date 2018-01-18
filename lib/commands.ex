@@ -37,7 +37,7 @@ defmodule Overdiscord.Commands do
     spawn(fn ->
       Process.sleep(5000)
       # Load entire userlist, at a rate of 100 per minutes because of discord limits
-      Alchemy.Cache.load_guild_members(Alchemy.Cache.guild_id(Overdiscord.IRC.Bridge.alchemy_channel()), "", 0)
+      Alchemy.Cache.load_guild_members(elem(Alchemy.Cache.guild_id(Overdiscord.IRC.Bridge.alchemy_channel()), 1), "", 0)
     end)
     {:ok, nil}
   end
