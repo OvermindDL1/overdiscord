@@ -424,11 +424,7 @@ defmodule Overdiscord.IRC.Bridge do
         "worth the climb.  In general, it makes the familiar seem more efficient and the unfamiliar less so.  In the short run, this is probably true -- if you're late for a deadline, the best thing to do is not to switch to a new operating system in the hopes that your productivity will increase.",
         "In the long run, it's worth trying a few things knowing that they won't all work out, but hoping to find tools that match your style best. -- https://blog.codinghorror.com/the-software-imprinting-dilemma/",
       ],
-      "patreon" => "https://www.patreon.com/gregoriust",
       "website" => "https://gregtech.overminddl1.com/",
-      "downloads" => "https://gregtech.overminddl1.com/1.7.10/",
-      "secret" => "https://gregtech.overminddl1.com/secretdownloads/",
-      "bear" => "https://gaming.youtube.com/c/aBear989/live",
       "discordstatus" => "https://discord.statuspage.io/",
       "semver" => "https://semver.org/",
     }
