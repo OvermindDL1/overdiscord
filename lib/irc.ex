@@ -306,6 +306,18 @@ defmodule Overdiscord.IRC.Bridge do
             end
         end
       end,
+      "screenshot" => fn(_cmd, _args, _auth, _chan, _state) ->
+        %{body: url, status_code: url_code} = HTTPoison.get!("https://gregtech.overminddl1.com/com/gregoriust/gregtech/screenshots/LATEST.url")
+        case url_code do
+          200 ->
+            %{body: description, status_code: description_code} = HTTPoison.get!("https://gregtech.overminddl1.com/imagecaption.adoc")
+            case description_code do
+              200 -> ["https://gregtech.overminddl1.com#{url}", description]
+              _ -> url
+            end
+          _ -> "Unable to retrieve image URL, report this error to OvermindDL1"
+        end
+      end,
       "list" => fn(_cmd, _args, _auth, chan, state) ->
         try do
           names =
@@ -403,7 +415,12 @@ defmodule Overdiscord.IRC.Bridge do
           nil -> nil
           str when is_binary(str) -> send_msg_both("> " <> str, chan, state.client)
           [] -> nil
-          # [_|_] = lst -> nil
+          [_|_] = msgs when length(msgs) > 4 ->
+            Enum.map(msgs, fn msg ->
+              send_msg_both("> #{msg}", chan, state.client)
+              Process.sleep(200)
+            end)
+          [_|_] = msgs -> Enum.map(msgs, &send_msg_both("> #{&1}", chan, state.client))
         end
      end
   end
