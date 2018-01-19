@@ -1,7 +1,6 @@
 defmodule Overdiscord.Commands.GD do
   use Alchemy.Cogs
   alias Alchemy.{Client, Embed}
-  import Embed
   import Meeseeks.CSS
 
   # @red_embed %Embed{color: 0xd44480}

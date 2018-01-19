@@ -35,6 +35,10 @@ defmodule Overdiscord.IRC.Bridge do
     :gen_server.call(:irc_bridge, :get_db)
   end
 
+  def poll_xkcd() do
+    :gen_server.cast(:irc_bridge, :poll_xkcd)
+  end
+
   def start_link(state \\ %State{}) do
     IO.inspect("Launching IRC Bridge")
     :gen_server.start_link({:local, :irc_bridge}, __MODULE__, state, [])
@@ -82,6 +86,32 @@ defmodule Overdiscord.IRC.Bridge do
       message_extra(:send_msg, msg, nick, "#gt-dev", state)
       Process.sleep(200)
     end)
+    {:noreply, state}
+  end
+
+  def handle_cast(:poll_xkcd, state) do
+    import Meeseeks.CSS
+    rss_url = "https://xkcd.com/rss.xml"
+    %{body: body, status_code: status_code} = response = HTTPoison.get!(rss_url)
+    case status_code do
+      200 ->
+        doc = Meeseeks.parse(body, :xml)
+        with(
+          xkcd_link when xkcd_link != nil <- Meeseeks.text(Meeseeks.one(doc, css("channel item link"))),
+          xkcd_title when xkcd_title != nil <- Meeseeks.text(Meeseeks.one(doc, css("channel item title")))
+        ) do
+          case db_get(state, :kv, :xkcd_link) do
+            ^xkcd_link -> nil
+            _old_link ->
+              db_put(state, :kv, :xkcd_link, xkcd_link)
+              db_put(state, :kv, :xkcd_title, xkcd_title)
+              if true != check_greg_xkcd(state, xkcd_link, xkcd_title) do
+                #send_msg_both("#{xkcd_link} #{xkcd_title}", "#gt-dev", state.client)
+              end
+          end
+        end
+      _ -> IO.inspect(response, label: :INVALID_RESPONSE_XKCD)
+    end
     {:noreply, state}
   end
 
@@ -168,11 +198,14 @@ defmodule Overdiscord.IRC.Bridge do
     IO.inspect("#{chan}: User `#{user}` with nick `#{nick}` joined from `#{host}`")
     case db_get(state, :kv, {:joined, nick}) do
       nil ->
-        send_msg_both("Welcome to the \"GregoriusTechneticies Dev Chat\"!  Enjoy your stay, #{nick}!", chan, state.client)
+        send_msg_both("Welcome to the \"GregoriusTechneticies Dev Chat\"!  Enjoy your stay!", chan, state.client)
       _ -> :ok
     end
     db_put(state, :kv, {:joined, nick}, NaiveDateTime.utc_now())
     db_put(state, :kv, {:joined, user}, NaiveDateTime.utc_now())
+    if String.starts_with?(nick, "GregoriusTechneticies") do
+      check_greg_xkcd(state)
+    end
     #last = {_, s, _} = state.meta.logouts[host] || 0
     #last = :erlang.setelement(2, last, s+(60*5))
     #if chan == "#gt-dev-test" and :erlang.now() > last do
@@ -251,7 +284,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   def send_msg_both(msg, chan, client) do
     ExIrc.Client.msg(client, :privmsg, chan, msg)
-    Alchemy.Client.send_message(alchemy_channel(), msg)
+    if chan == "#gt-dev", do: Alchemy.Client.send_message(alchemy_channel(), msg)
     nil
   end
 
@@ -304,6 +337,17 @@ defmodule Overdiscord.IRC.Bridge do
                 Alchemy.Client.send_message(alchemy_channel(), "", [{:embed, embed}])
                 nil
             end
+        end
+      end,
+      "xkcd" => fn(_cmd, args, _auth, _chan, _state) ->
+        case Integer.parse(String.trim(args)) do
+          {id, ""} -> "https://xkcd.com/#{id}"
+          _ ->
+            with(
+              xkcd_link when xkcd_link != nil <- db_get(state, :kv, :xkcd_link),
+              xkcd_title when xkcd_title != nil <- db_get(state, :kv, :xkcd_title),
+              do: "#{xkcd_link} #{xkcd_title}"
+            )
         end
       end,
       "screenshot" => fn(_cmd, _args, _auth, _chan, _state) ->
@@ -397,7 +441,9 @@ defmodule Overdiscord.IRC.Bridge do
               msg = cache
                 |> Map.keys()
                 |> Enum.join(" ")
+              phrases = db_get(state, :set, :phrases) || ["<None found>"]
               send_msg_both("Valid commands: #{msg}", chan, state.client)
+              send_msg_both("Valid phrases: #{Enum.join(phrases, " ")}", chan, state.client)
             else
               nil
             end
@@ -485,6 +531,25 @@ defmodule Overdiscord.IRC.Bridge do
       msg =~ ~r"bye everyone"i  ->
         ExIrc.Client.msg(client, :privmsg, "#gt-dev", Enum.random(farewells()))
       true -> :ok
+    end
+  end
+
+
+  def check_greg_xkcd(state) do
+    with(
+      xkcd_link when xkcd_link != nil <- db_get(state, :kv, :xkcd_link),
+      xkcd_title when xkcd_title != nil <- db_get(state, :kv, :xkcd_title),
+      do: check_greg_xkcd(state, xkcd_link, xkcd_title)
+    )
+  end
+  def check_greg_xkcd(state, xkcd_link, xkcd_title) do
+    last_link = db_get(state, :kv, :xkcd_greg_link)
+    if last_link != xkcd_link and ExIrc.Client.channel_has_user?(state.client, "#gt-dev", "GregoriusTechneticies") do
+      db_put(state, :kv, :xkcd_greg_link, xkcd_link)
+      send_msg_both("#{xkcd_link} #{xkcd_title}", "#gt-dev", state.client)
+      true
+    else
+      nil
     end
   end
 

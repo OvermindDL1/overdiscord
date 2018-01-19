@@ -32,3 +32,7 @@ use Mix.Config
 config :alchemy,
   ffmpeg_path: "/usr/bin/ffmpeg",
   youtube_dl_path: "/usr/local/bin/youtube-dl"
+
+config :overdiscord, Overdiscord.Cron, jobs: [
+  {"0 * * * *", {Overdiscord.IRC.Bridge, :poll_xkcd, []}},
+]

@@ -45,6 +45,9 @@ defmodule Overdiscord.Mixfile do
       {:cachex, "~> 2.1"},
       {:exsync, "~> 0.2.1", only: :dev},
       {:exleveldb, "~> 0.12.2"},
+      {:gen_stage, "~> 0.13", override: true},
+      {:quantum, "~> 2.2"},
+      {:timex, "~> 3.1"},
     ]
   end
 end
