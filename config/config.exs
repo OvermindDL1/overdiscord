@@ -35,4 +35,5 @@ config :alchemy,
 
 config :overdiscord, Overdiscord.Cron, jobs: [
   {"0 * * * *", {Overdiscord.IRC.Bridge, :poll_xkcd, []}},
+  {"*/1 * * * *", {Overdiscord.IRC.Bridge, :poll_delay_msgs, []}},
 ]

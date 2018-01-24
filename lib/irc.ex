@@ -1,6 +1,5 @@
 defmodule Overdiscord.IRC.Bridge do
   # TODO:  Janitor for db: time-series
-  # TODO:  XKCD mapping
 
   defmodule State do
     defstruct [
@@ -37,6 +36,10 @@ defmodule Overdiscord.IRC.Bridge do
 
   def poll_xkcd() do
     :gen_server.cast(:irc_bridge, :poll_xkcd)
+  end
+
+  def poll_delay_msgs() do
+    :gen_server.cast(:irc_bridge, :poll_delay_msgs)
   end
 
   def start_link(state \\ %State{}) do
@@ -115,6 +118,21 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
+  def handle_cast(:poll_delay_msgs, state) do
+    now = System.system_time(:second)
+
+    db_get(state, :set, :delay_msgs)
+    |> Enum.map(fn
+      {time, _host, chan, nick, msg} = rec when time <= now ->
+        IO.inspect(rec, label: :ProcessingDelay)
+        send_msg_both("#{nick}{Delay}: #{msg}", chan, state)
+        db_put(state, :set_remove, :delay_msgs, rec)
+      _ -> nil
+    end)
+
+    {:noreply, state}
+  end
+
   def handle_cast(:list_users, state) do
     users = ExIrc.Client.channel_users(state.client, "#gt-dev")
     users = Enum.join(users, " ")
@@ -122,6 +140,10 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
+
+  def handle_info(:poll_delay_msgs, state) do
+    handle_cast(:poll_delay_msgs, state)
+  end
 
   def handle_info({:connected, _server, _port}, state) do
     IO.inspect("connecting bridge...")
@@ -238,6 +260,9 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
 
+  def code_change(old_vsn, old_state, extra_data) do
+    IO.inspect({old_vsn, old_state, extra_data}, label: :Code_Change)
+  end
 
 
   def terminate(reason, state) do
@@ -282,34 +307,44 @@ defmodule Overdiscord.IRC.Bridge do
 
   def alchemy_channel(), do: "320192373437104130"
 
-  def send_msg_both(msg, chan, client) do
-    ExIrc.Client.msg(client, :privmsg, chan, msg)
-    if chan == "#gt-dev", do: Alchemy.Client.send_message(alchemy_channel(), msg)
+  def send_msg_both(msgs, chan, client, prefix \\ "> ")
+  def send_msg_both(msgs, chan, %{client: client}, prefix) do
+    send_msg_both(msgs, chan, client, prefix)
+  end
+  def send_msg_both(msgs, chan, client, prefix) do
+    msgs
+    |> List.wrap()
+    |> Enum.map(fn msg ->
+      msg
+      |> String.split("\\n")
+      |> Enum.map(fn msg ->
+        msg
+        |> split_at_irc_max_length()
+        |> List.flatten()
+        |> Enum.map(fn msg ->
+          ExIrc.Client.msg(client, :privmsg, chan, prefix <> msg)
+          Process.sleep(200)
+        end)
+      end)
+    end)
+
+    if chan == "#gt-dev" do
+      amsg = convert_message_to_discord(prefix <> String.replace(Enum.join(List.wrap(msgs)), "\\n", "\n#{prefix}"))
+      Alchemy.Client.send_message(alchemy_channel(), amsg)
+    end
     nil
   end
 
 
   def message_cmd(call, args, auth, chan, state)
-  def message_cmd("wiki", args, _auth, chan, state) do
-    url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}")
-    message_cmd_url_with_summary(url, chan, state.client)
-  end
-  def message_cmd("ftbwiki", args, _auth, chan, state) do
-    url = IO.inspect("https://ftb.gamepedia.com/#{URI.encode(args)}")
-    message_cmd_url_with_summary(url, chan, state.client)
-  end
-  def message_cmd("logs", "", _auth, chan, state) do
-    msg = "Please supply any and all logs"
-    send_msg_both(msg, chan, state.client)
-  end
-  def message_cmd("factorio", "demo", _auth, chan, state) do
-    msg = "Try the Factorio Demo at https://factorio.com/download-demo and you'll love it!"
-    send_msg_both(msg, chan, state.client)
-  end
-  def message_cmd("factorio", _args, _auth, chan, state) do
-    msg = "Factorio is awesome!  See the demonstration video at https://factorio.com or better yet grab the demo at https://factorio.com/download-demo and give it a try!"
-    send_msg_both(msg, chan, state.client)
-  end
+  #def message_cmd("factorio", "demo", _auth, chan, state) do
+  #  msg = "Try the Factorio Demo at https://factorio.com/download-demo and you'll love it!"
+  #  send_msg_both(msg, chan, state.client)
+  #end
+  #def message_cmd("factorio", _args, _auth, chan, state) do
+  #  msg = "Factorio is awesome!  See the demonstration video at https://factorio.com or better yet grab the demo at https://factorio.com/download-demo and give it a try!"
+  #  send_msg_both(msg, chan, state.client)
+  #end
   def message_cmd(cmd, args, auth, chan, state) do
     cache = %{ # This is not allocated on every invocation, it is interned
       "changelog" => fn(_cmd, args, _auth, chan, state) ->
@@ -318,7 +353,7 @@ defmodule Overdiscord.IRC.Bridge do
           _ ->
             case Overdiscord.Commands.GT6.get_changelog_version(args) do
               {:error, msgs} ->
-                Enum.map(msgs, &send_msg_both("> " <> &1, chan, state.client))
+                Enum.map(msgs, &send_msg_both(&1, chan, state.client))
                 nil
               %{changesets: []} ->
                 send_msg_both("Changelog has no changesets in it, check:  https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/changelog.txt", chan, state.client)
@@ -326,7 +361,7 @@ defmodule Overdiscord.IRC.Bridge do
               {:ok, changelog} ->
                 msgs = Overdiscord.Commands.GT6.format_changelog_as_text(changelog)
                 Enum.map(msgs, fn msg ->
-                  Enum.map(String.split(msg, ["\r\n", "\n"]), fn msg ->
+                  Enum.map(String.split(to_string(msg), ["\r\n", "\n"]), fn msg ->
                     Enum.map(split_at_irc_max_length(msg), fn msg ->
                       ExIrc.Client.msg(state.client, :privmsg, chan, msg)
                       Process.sleep(200)
@@ -348,6 +383,89 @@ defmodule Overdiscord.IRC.Bridge do
               xkcd_title when xkcd_title != nil <- db_get(state, :kv, :xkcd_title),
               do: "#{xkcd_link} #{xkcd_title}"
             )
+        end
+      end,
+      "google" => fn(_cmd, args, _auth, _chan, _state) ->
+        "https://lmgtfy.com/?q=#{URI.encode(args)}"
+      end,
+      "wiki" => fn(_cmd, args, _auth, chan, state) ->
+        url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}")
+        message_cmd_url_with_summary(url, chan, state.client)
+        nil
+      end,
+      "ftbwiki" => fn(_cmd, args, _auth, chan, state) ->
+        url = IO.inspect("https://ftb.gamepedia.com/#{URI.encode(args)}")
+        message_cmd_url_with_summary(url, chan, state.client)
+        nil
+      end,
+      "eval-lua" => fn(_cmd, args, _auth, chan, state) ->
+        lua_eval_msg(state, chan, args)
+      end,
+      "calc" => fn(_cmd, args, _auth, chan, state) ->
+        lua_eval_msg(state, chan, "return (#{args})")
+      end,
+      "delay" => fn(cmd, args, auth, chan, state) ->
+        case String.split(args, " ", parts: 2) do
+          [] -> "Usage: #{cmd} <timespec|\"next\"|\"list\"> <msg...>"
+          ["next"] ->
+            nic = auth.nick
+            db_get(state, :set, :delay_msgs)
+            |> Enum.filter(fn
+              {_time, _host, mchan, nick, _msg} when nick == nic and mchan == chan -> true
+              _ -> false
+            end)
+            |> Enum.sort_by(&elem(&1, 0))
+            |> case do
+                 [{time, _host, _chan, nick, msg} | _rest] ->
+                   now = System.system_time(:second)
+                   {:ok, dtime} = DateTime.from_unix(time)
+                   "Next pending delay message from #{nick} set to appear at #{to_string(dtime)} (#{time-now}s): #{msg}"
+                 _ -> "No pending messages"
+               end
+          ["list"] ->
+            nic = auth.nick
+            now = System.system_time(:second)
+            db_get(state, :set, :delay_msgs)
+            |> Enum.filter(fn
+              {_time, _host, _chan, nick, _msg} when nick == nic -> true
+              _ -> false
+            end)
+            |> Enum.sort_by(&elem(&1, 0))
+            |> Enum.map(&"#{to_string(elem(&1, 0)-now)}s")
+            |> case do
+                 [] -> "No pending messages"
+                 lst -> "Pending delays remaining: #{Enum.join(lst, " ")}"
+               end
+          [timespec] ->
+            case parse_relativetime_to_seconds(timespec) do
+              {:ok, seconds} -> "Parsed timespec is for #{seconds} seconds"
+              {:error, reason} -> "Invalid timespec: #{reason}"
+            end
+          [timespec, msg] ->
+            case parse_relativetime_to_seconds(timespec) do
+              {:error, reason} -> "Invalid timespec: #{reason}"
+              {:ok, seconds} ->
+                IO.inspect(ExIrc.Client.channel_users(state.client, "#gt-dev"))
+                case IO.inspect auth do
+                  %{host: "id-16796."<>_, user: "uid16796"} -> 12
+                  %{host: "ltea-" <> _, user: "~Gregorius"} -> 12
+                  _ -> 0
+                end
+                |> case do
+                     0 -> "You are not allowed to use this command"
+                     limit ->
+                       now = System.system_time(:second)
+                       delays = db_get(state, :set, :delay_msgs)
+                       if limit <= Enum.count(delays, &(elem(&1, 1)==auth.host)) do
+                         "You have too many pending delayed messages, wait until some have elapsed: #{Enum.count(delays, &(elem(&1, 1)==auth.host))}"
+                       else
+                         now = System.system_time(:second)
+                         db_put(state, :set_add, :delay_msgs, {now+seconds, auth.host, chan, auth.nick, msg})
+                         Process.send_after(self(), :poll_delay_msgs, seconds*1000)
+                         "Delayed message added for #{seconds} seconds"
+                       end
+                   end
+            end
         end
       end,
       "screenshot" => fn(_cmd, _args, _auth, _chan, _state) ->
@@ -376,10 +494,36 @@ defmodule Overdiscord.IRC.Bridge do
           nil
         end
       end,
+      "solve" => fn(cmd, arg, _auth, chan, state) ->
+        case String.split(String.trim(arg), " ", parts: 2) do
+          [""] -> [
+            "Format: #{cmd} <cmd> <expression...>",
+            "Valid commands: abs log sin cos tan arcsin arccos arctan simplify factor zeroes solve derive integrate",
+            ]
+          [_cmmd] -> [
+            "Require an expression"
+          ]
+          [cmmd, expr] -> mdlt(cmmd, expr, chan, state)
+        end
+      end,
+      #"abs" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"log" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"sin" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"cos" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"tan" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"arcsin" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"arccos" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"arctan" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"simplify" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"factor" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"zeroes" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"solve" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"derive" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      #"integrate" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
       "lastseen" => fn(_cmd, arg, _auth, chan, state) ->
         arg = String.trim(arg)
         case db_get(state, :kv, {:lastseen, arg}) do
-          nil -> send_msg_both("> `#{arg}` has not been seen speaking before", chan, state.client)
+          nil -> send_msg_both("`#{arg}` has not been seen speaking before", chan, state.client)
           date ->
             now = NaiveDateTime.utc_now()
             diff_sec = NaiveDateTime.diff(now, date)
@@ -390,7 +534,7 @@ defmodule Overdiscord.IRC.Bridge do
               diff_sec < (60*60*24) -> "#{div(diff_sec, 60*60)} hours ago"
               true -> "#{div(diff_sec, 60*60*24)} days ago"
               end
-            send_msg_both("> `#{arg}` last said something #{diff} at: #{date} GMT", chan, state.client)
+            send_msg_both("`#{arg}` last said something #{diff} at: #{date} GMT", chan, state.client)
         end
       end,
       "setphrase" => fn(cmd, args, auth, chan, state) ->
@@ -401,32 +545,38 @@ defmodule Overdiscord.IRC.Bridge do
         end
         |> if do
           case String.split(args, " ", parts: 2) |> Enum.map(&String.trim/1) |> Enum.filter(&(&1!="")) do
-            [] -> send_msg_both("> Format: #{cmd} <phrase-cmd> {phrase}\nIf the phraase is missing or blank then it deletes the command", chan, state.client)
+            [] -> send_msg_both("Format: #{cmd} <phrase-cmd> {phrase}\nIf the phraase is missing or blank then it deletes the command", chan, state.client)
             [cmd] ->
               db_put(state, :set_remove, :phrases, cmd)
               db_delete(state, :kv, {:phrase, cmd})
-              send_msg_both("> #{cmd} removed if it existed", chan, state.client)
+              send_msg_both("#{cmd} removed if it existed", chan, state.client)
             [cmd, phrase] ->
-              db_put(state, :set_add, :phrases, cmd)
-              db_put(state, :kv, {:phrase, cmd}, phrase)
-              send_msg_both("> #{cmd} added as a phrase", chan, state.client)
+              case db_get(state, :kv, {:phrase, cmd}) do
+                nil ->
+                  db_put(state, :set_add, :phrases, cmd)
+                  db_put(state, :kv, {:phrase, cmd}, phrase)
+                  send_msg_both("#{cmd} added as a phrase", chan, state.client)
+                [_|_] = old when length(old)>=8 ->
+                  send_msg_both("Existing phrase `#{cmd}` already has too many lines", chan, state.client)
+                old ->
+                  db_put(state, :kv, {:phrase, cmd}, List.wrap(old) ++ [phrase])
+                  send_msg_both("Extended existing phrase `#{cmd}` with new line", chan, state.client)
+              end
           end
         else
-          send_msg_both("> You don't have access", chan, state.client)
+          send_msg_both("You don't have access", chan, state.client)
         end
         nil
       end,
-      "mcve" => "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve",
-      "sscce" => "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/",
-      "xy" => "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/",
-      "bds" => [
-        "Baby duck syndrome is the tendency for computer users to 'imprint' on the first system they learn, then judge other systems by their similarity to that first system.  The result is that users generally prefer systems similar to those they learned on and dislike unfamiliar systems.  It can make it hard for you to make the most rational decision about which software to use or when the learning curve of a given thing is",
-        "worth the climb.  In general, it makes the familiar seem more efficient and the unfamiliar less so.  In the short run, this is probably true -- if you're late for a deadline, the best thing to do is not to switch to a new operating system in the hopes that your productivity will increase.",
-        "In the long run, it's worth trying a few things knowing that they won't all work out, but hoping to find tools that match your style best. -- https://blog.codinghorror.com/the-software-imprinting-dilemma/",
-      ],
-      "website" => "https://gregtech.overminddl1.com/",
+      # "mcve" => "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve",
+      # "sscce" => "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/",
+      # "xy" => "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/",
+      # "bds" => [
+      #   "Baby duck syndrome is the tendency for computer users to 'imprint' on the first system they learn, then judge other systems by their similarity to that first system.  The result is that users generally prefer systems similar to those they learned on and dislike unfamiliar systems.  It can make it hard for you to make the most rational decision about which software to use or when the learning curve of a given thing is",
+      #   "worth the climb.  In general, it makes the familiar seem more efficient and the unfamiliar less so.  In the short run, this is probably true -- if you're late for a deadline, the best thing to do is not to switch to a new operating system in the hopes that your productivity will increase.",
+      #   "In the long run, it's worth trying a few things knowing that they won't all work out, but hoping to find tools that match your style best. -- https://blog.codinghorror.com/the-software-imprinting-dilemma/",
+      # ],
       "discordstatus" => "https://discord.statuspage.io/",
-      "semver" => "https://semver.org/",
     }
 
     case Map.get(cache, cmd) do
@@ -436,8 +586,10 @@ defmodule Overdiscord.IRC.Bridge do
             if args == "" do
               msg = cache
                 |> Map.keys()
+                |> Enum.sort()
                 |> Enum.join(" ")
               phrases = db_get(state, :set, :phrases) || ["<None found>"]
+              phrases = Enum.sort(phrases)
               send_msg_both("Valid commands: #{msg}", chan, state.client)
               send_msg_both("Valid phrases: #{Enum.join(phrases, " ")}", chan, state.client)
             else
@@ -447,22 +599,22 @@ defmodule Overdiscord.IRC.Bridge do
             # Check for phrases
             case db_get(state, :kv, {:phrase, cmd}) do
               nil -> nil
-              phrase -> send_msg_both("> #{phrase}", chan, state.client)
+              phrase -> send_msg_both(phrase, chan, state.client)
             end
         end
-      msg when is_binary(msg) -> send_msg_both("> " <> msg, chan, state.client)
-      [_|_] = msgs -> Enum.map(msgs, &send_msg_both("> " <> &1, chan, state.client))
+      msg when is_binary(msg) -> send_msg_both(msg, chan, state.client)
+      [_|_] = msgs -> Enum.map(msgs, &send_msg_both(&1, chan, state.client))
       fun when is_function(fun, 5) ->
         case fun.(cmd, args, auth, chan, state) do
           nil -> nil
-          str when is_binary(str) -> send_msg_both("> " <> str, chan, state.client)
+          str when is_binary(str) -> send_msg_both(str, chan, state.client)
           [] -> nil
           [_|_] = msgs when length(msgs) > 4 ->
             Enum.map(msgs, fn msg ->
-              send_msg_both("> #{msg}", chan, state.client)
+              send_msg_both(msg, chan, state.client)
               Process.sleep(200)
             end)
-          [_|_] = msgs -> Enum.map(msgs, &send_msg_both("> #{&1}", chan, state.client))
+          [_|_] = msgs -> Enum.map(msgs, &send_msg_both(&1, chan, state.client))
         end
      end
   end
@@ -480,6 +632,22 @@ defmodule Overdiscord.IRC.Bridge do
     [call | args] = String.split(cmd, " ", [parts: 2])
     args = String.trim(to_string(args))
     message_cmd(call, args, auth, chan, state)
+  end
+  def message_extra(:msg, "ß" <> cmd, auth, chan, state) do
+    [call | args] = String.split(cmd, " ", [parts: 2])
+    args = String.trim(to_string(args))
+    message_cmd(call, args, auth, chan, state)
+  end
+
+  def message_extra(:msg, "=2+2", _auth, chan, state) do
+    send_msg_both("Fish", chan, state.client)
+  end
+  def message_extra(:msg, "=" <> expression, _auth, chan, state) do
+    lua_eval_msg(state, chan, "return #{expression}", cb: fn
+      {:ok, [result]} -> send_msg_both("#{inspect result}", chan, state.client)
+      {:ok, result} -> send_msg_both("#{inspect result}", chan, state.client)
+      {:error, _reason} -> send_msg_both("= <failed>", chan, state.client)
+    end)
   end
 
   def message_extra(_type, msg, _auth, chan, %{client: client} = _state) do
@@ -559,11 +727,11 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
 
-  defp db_put(state = %{db: db}, type, key, value) do
+  def db_put(state = %{db: db}, type, key, value) do
     db_put(db, type, key, value)
     state
   end
-  defp db_put(db, :timeseries, key, value) when is_integer(value) do
+  def db_put(db, :timeseries, key, value) when is_integer(value) do
     now = NaiveDateTime.utc_now()
     key = :erlang.term_to_binary({:ts, key, now.year, now.month, now.day, now.hour})
     oldValue =
@@ -575,12 +743,12 @@ defmodule Overdiscord.IRC.Bridge do
     Exleveldb.put(db, key, value)
     db
   end
-  defp db_put(db, :kv, key, value) do
+  def db_put(db, :kv, key, value) do
     key = :erlang.term_to_binary({:kv, key})
     value = :erlang.term_to_binary(value)
     Exleveldb.put(db, key, value)
   end
-  defp db_put(db, :set_add, key, value) do
+  def db_put(db, :set_add, key, value) do
     key = :erlang.term_to_binary({:set, key})
     oldValues =
       case Exleveldb.get(db, key) do
@@ -591,7 +759,7 @@ defmodule Overdiscord.IRC.Bridge do
     Exleveldb.put(db, key, values)
     db
   end
-  defp db_put(db, :set_remove, key, value) do
+  def db_put(db, :set_remove, key, value) do
     key = :erlang.term_to_binary({:set, key})
     case Exleveldb.get(db, key) do
       :not_found -> db
@@ -601,7 +769,7 @@ defmodule Overdiscord.IRC.Bridge do
         Exleveldb.put(db, key, values)
     end
   end
-  defp db_put(db, type, key, value) do
+  def db_put(db, type, key, value) do
     IO.inspect("Invalid DB put type of `#{inspect type}` of key `#{inspect key}` with value: #{inspect value}", label: :ERROR_DB_TYPE)
     db
   end
@@ -610,17 +778,17 @@ defmodule Overdiscord.IRC.Bridge do
     db_put(db, :timeseries, key, 1)
   end
 
-  defp db_get(%{db: db}, type, key) do
+  def db_get(%{db: db}, type, key) do
     db_get(db, type, key)
   end
-  defp db_get(db, :kv, key) do
+  def db_get(db, :kv, key) do
     key = :erlang.term_to_binary({:kv, key})
     case Exleveldb.get(db, key) do
       :not_found -> nil
       {:ok, value} -> :erlang.binary_to_term(value, [:safe])
     end
   end
-  defp db_get(db, :set, key) do
+  def db_get(db, :set, key) do
     key = :erlang.term_to_binary({:set, key})
     case Exleveldb.get(db, key) do
       :not_found -> []
@@ -630,27 +798,136 @@ defmodule Overdiscord.IRC.Bridge do
 
     end
   end
-  defp db_get(_db, type, key) do
+  def db_get(_db, type, key) do
     IO.inspect("Invalid DB get type for `#{inspect type}` of key `#{inspect key}`", label: :ERROR_DB_TYPE)
     nil
   end
 
-  defp db_delete(%{db: db}, type, key) do
+  def db_delete(%{db: db}, type, key) do
     db_delete(db, type, key)
   end
-  defp db_delete(db, :kv, key) do
+  def db_delete(db, :kv, key) do
     key = :erlang.term_to_binary({:kv, key})
     Exleveldb.delete(db, key)
   end
-  defp db_delete(_db, type, key) do
+  def db_delete(_db, type, key) do
     IO.inspect("Invalid DB delete type for `#{inspect type}` of key `#{inspect key}`", label: :ERROR_DB_TYPE)
     nil
   end
 
 
-  defp db_user_messaged(db, auth, _msg) do
+  def db_user_messaged(db, auth, _msg) do
     db_timeseries_inc(db, auth.nick)
     db_put(db, :kv, {:lastseen, auth.nick}, NaiveDateTime.utc_now())
+  end
+
+
+  def new_lua_state() do
+    lua = :luerl.init()
+    lua = :luerl.set_table([:os, :getenv], nil, lua)
+    lua = :luerl.set_table([:package], nil, lua)
+    lua = :luerl.set_table([:require], nil, lua)
+    lua = :luerl.set_table([:loadfile], nil, lua)
+    lua = :luerl.set_table([:load], nil, lua)
+    lua = :luerl.set_table([:dofile], nil, lua)
+    lua
+  end
+
+  def lua_eval(_state, expression) do
+    # TODO: Get the lua state out of `state`
+    lua = new_lua_state()
+    case :luerl.eval(expression, lua) do
+      {:ok, _result} = ret -> ret
+      {:error, _reason} -> {:error, "Parse Error"}
+    end
+  rescue r ->
+    IO.inspect(r, label: :LuaException)
+    {:error, r}
+  catch e ->
+    IO.inspect(e, label: :LuaError)
+    {:error, e}
+  end
+
+  def lua_eval_msg(state, chan, expression, opts \\ []) do
+    cb = opts[:cb]
+    pid =
+      spawn(fn ->
+        case lua_eval(state, expression) do
+          {:ok, result} ->
+            if cb, do: cb.({:ok, result}), else: send_msg_both("Result: #{inspect result}", chan, state.client)
+          {:error, reason} ->
+            if cb, do: cb.({:error, reason}), else: send_msg_both("Failed running with reason: #{inspect reason}", chan, state.client)
+        end
+      end)
+    spawn(fn ->
+      Process.sleep(opts[:timeout] || 5000)
+      if Process.alive?(pid) do
+        Process.exit(pid, :brutal_kill)
+        send_msg_both("Eval hit maximum running time.", chan, state.client)
+      end
+    end)
+    nil
+  end
+
+
+  def parse_relativetime_to_seconds("") do
+    {:ok, 0}
+  end
+  def parse_relativetime_to_seconds(str) do
+    case Integer.parse(str) do
+      :error -> {:error, "Invalid number where number was expected: #{str}"}
+      {value, rest} ->
+        case reltime_mult(rest) do
+          {:error, _} = error -> error
+          {:ok, mult, rest} ->
+            value = value * mult
+            case parse_relativetime_to_seconds(rest) do
+              {:error, _} = error -> error
+              {:ok, more} -> {:ok, more + value}
+            end
+        end
+    end
+  end
+
+  defp reltime_mult(str)
+  defp reltime_mult("s"<>rest), do: {:ok, 1, rest}
+  defp reltime_mult("m"<>rest), do: {:ok, 60, rest}
+  defp reltime_mult("h"<>rest), do: {:ok, 60*60, rest}
+  defp reltime_mult("d"<>rest), do: {:ok, 60*60*24, rest}
+  defp reltime_mult("w"<>rest), do: {:ok, 60*60*24*7, rest}
+  defp reltime_mult("M"<>rest), do: {:ok, 60*60*24*30, rest}
+  defp reltime_mult("y"<>rest), do: {:ok, 60*60*24*365, rest}
+  defp reltime_mult(str), do: {:error, "Invalid multiplier spec: #{str}"}
+
+  defp seconds_to_reltime(seconds) do
+  end
+
+
+  def mdlt(op, expr, chan, state, opts \\ []) do
+    pid =
+      spawn(fn ->
+        case System.cmd("mdlt", [op, expr]) do
+          {result, _exit_code_which_is_always_0_grr} ->
+            case String.split(result, "\n", parts: 2) do
+              [] -> "#{inspect({op, expr})})} Error processing expression"
+              [result | _] -> "#{op}(#{expr}) -> #{result}"
+              #[err, _rest] -> "#{inspect({op, expr})} Error: #{err}"
+            end
+          err ->
+            IO.inspect({op, expr, err}, label: :MathSolverErr)
+            "#{inspect({op, expr})} Error loading Math solver, report this to OvermindDL1"
+        end
+        |> IO.inspect(label: :MDLTResult)
+        |> send_msg_both(chan, state.client)
+      end)
+    spawn(fn ->
+      Process.sleep(opts[:timeout] || 5000)
+      if Process.alive?(pid) do
+        Process.exit(pid, :brutal_kill)
+        send_msg_both("Math calculation hit maximum running time.", chan, state.client)
+      end
+    end)
+    nil
   end
 
 

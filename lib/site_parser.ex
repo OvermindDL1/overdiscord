@@ -29,8 +29,9 @@ defmodule Overdiscord.SiteParser do
     %{body: body, status_code: status_code, headers: headers} = _response = HTTPoison.get!(url)
     case status_code do
       code when code >= 300 and code <= 399 ->
-        case :proplists.get_value("Location", headers) do
-          :undefined -> "URL Redirects without a Location header"
+        IO.inspect(headers, label: :Headers)
+        case :proplists.get_value(headers, ["Location"]) do
+          nil -> "URL Redirects without a Location header"
           new_url -> get_summary(new_url, Map.put(opts, :recursion_limit, opts[:recursion_limit] || 3))
         end
       200 ->

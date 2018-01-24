@@ -22,7 +22,7 @@ defmodule Overdiscord.Commands.GT6 do
                 {version, description} =
                    case String.split(version_line, ":", parts: 2) do
                      [version] -> {version, ""}
-                     [version, " (Not released yet)"] -> {version, false}
+                     [version, " (Not released yet)"] -> {version, "(Not released yet)"}
                      [version, description] -> {version, description}
                    end
                  entries =
@@ -95,7 +95,7 @@ defmodule Overdiscord.Commands.GT6 do
 
 
   def format_changelog_as_text(changelog)
-  def format_changelog_as_text(%{changesets: []}), do: nil
+  def format_changelog_as_text(%{changesets: []}), do: []
   def format_changelog_as_text(%{changesets: changesets, last_updated: last_updated}) do
     changeset = hd(changesets)
     [
