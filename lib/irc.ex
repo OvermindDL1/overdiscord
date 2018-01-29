@@ -86,7 +86,7 @@ defmodule Overdiscord.IRC.Bridge do
         # ExIrc.Client.nick(state.client, state.nick)
         Process.sleep(200)
       end)
-      message_extra(:send_msg, msg, nick, "#gt-dev", state)
+      message_extra(:send_msg, line, nick, "#gt-dev", state)
       Process.sleep(200)
     end)
     {:noreply, state}
@@ -447,8 +447,9 @@ defmodule Overdiscord.IRC.Bridge do
               {:ok, seconds} ->
                 IO.inspect(ExIrc.Client.channel_users(state.client, "#gt-dev"))
                 case IO.inspect auth do
-                  %{host: "id-16796."<>_, user: "uid16796"} -> 12
-                  %{host: "ltea-" <> _, user: "~Gregorius"} -> 12
+                  %{host: "id-16796."<>_, user: "uid16796"} -> 12 # OvermindDL1
+                  %{host: "ltea-"<>_, user: "~Gregorius"} -> 12 # Greg
+                  %{host: "id-276919"<>_, user: "uid276919"} -> 1 # SuperCoder79
                   _ -> 0
                 end
                 |> case do
@@ -623,7 +624,7 @@ defmodule Overdiscord.IRC.Bridge do
     ExIrc.Client.msg(client, :privmsg, chan, url)
     case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :UrlSummary) do
       nil -> "No information found at URL"
-      summary -> ExIrc.Client.msg(client, :privmsg, chan, summary)
+      summary -> ExIrc.Client.msg(client, :privmsg, chan, "> " <> summary)
     end
   end
 
@@ -664,7 +665,7 @@ defmodule Overdiscord.IRC.Bridge do
                if summary =~ ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
                  nil
                else
-                 ExIrc.Client.msg(client, :privmsg, "#gt-dev", summary)
+                 ExIrc.Client.msg(client, :privmsg, "#gt-dev", "> " <> summary)
                end
            end
          end

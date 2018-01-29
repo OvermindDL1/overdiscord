@@ -25,14 +25,19 @@ defmodule Overdiscord.SiteParser do
 
 
 
-  def get_summary(url, opts \\ %{recursion_limit: 4}) do
+  def get_summary(url, opts \\ %{recursion_limit: 4})
+  def get_summary(_url, %{recursion_limit: -1}) do
+    "URL recursed HTTP 3xx status codes too many times (>4), this is a *bad* site setup and should be reported to the URL owner"
+  end
+  def get_summary(url, opts) do
+    IO.inspect({url, opts})
     %{body: body, status_code: status_code, headers: headers} = _response = HTTPoison.get!(url)
     case status_code do
       code when code >= 300 and code <= 399 ->
         IO.inspect(headers, label: :Headers)
-        case :proplists.get_value(headers, ["Location"]) do
-          nil -> "URL Redirects without a Location header"
-          new_url -> get_summary(new_url, Map.put(opts, :recursion_limit, opts[:recursion_limit] || 3))
+        case :proplists.get_value("Location", headers) do
+          :undefined -> "URL Redirects without a Location header"
+          new_url -> get_summary(new_url, Map.put(opts, :recursion_limit, opts[:recursion_limit] - 1))
         end
       200 ->
         case :proplists.get_value("Content-Type", headers) do
