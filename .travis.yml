@@ -9,6 +9,7 @@ addons:
       - cargo
 sudo: false
 cache:
+  rust
   directories:
     - deps
 env:
@@ -16,11 +17,12 @@ env:
     - ELIXIR_ASSERT_TIMEOUT=2000
 before_script:
   - mix deps.get
+  - mix deps.compile
   - echo Meeseeks is broken currently, patching it...
   - sed -i 's|rustler .*|rustler = "^0.16"|' deps/meeseeks_html5ever/native/meeseeks_html5ever_nif/Cargo.toml
   - echo Meeseeks patching is complete
 script:
-  - mix test
+  - mix compile # test
 after_script:
   - MIX_ENV=docs mix inch.report
   - mix format --check-formatted
