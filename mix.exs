@@ -6,9 +6,9 @@ defmodule Overdiscord.Mixfile do
       app: :overdiscord,
       version: "0.1.0",
       elixir: "~> 1.4",
-      build_embedded: Mix.env == :prod,
-      start_permanent: Mix.env == :prod,
-      deps: deps(),
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      deps: deps()
     ]
   end
 
@@ -20,8 +20,8 @@ defmodule Overdiscord.Mixfile do
     [
       mod: {Overdiscord, []},
       extra_applications: [
-        :logger,
-      ],
+        :logger
+      ]
     ]
   end
 
@@ -42,7 +42,7 @@ defmodule Overdiscord.Mixfile do
       {:gen_stage, "~> 0.13", override: true},
       {:quantum, "~> 2.2"},
       {:timex, "~> 3.1"},
-      {:luerl, "~> 0.3"},
+      {:luerl, "~> 0.3"}
     ]
   end
 end
