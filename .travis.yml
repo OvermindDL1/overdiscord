@@ -8,6 +8,9 @@ addons:
     packages:
       - cargo
 sudo: false
+cache:
+  directories:
+    - deps
 env:
   global:
     - ELIXIR_ASSERT_TIMEOUT=2000

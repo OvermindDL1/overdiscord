@@ -493,7 +493,7 @@ defmodule Overdiscord.IRC.Bridge do
                     timezone -> Timex.now(timezone)
                   end
                 Timex.format!(now, "{ISO:Extended}")
-                |> String.replace(~R/(+|-)\d\d:\d\d/)|>IO.inspect
+                |> String.replace(~R/(\+|-)\d\d:\d\d/)|>IO.inspect
               else
                 timespec
               end
