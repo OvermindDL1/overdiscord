@@ -4,15 +4,17 @@ defmodule Overdiscord.Commands.GD do
   import Meeseeks.CSS
 
   # @red_embed %Embed{color: 0xd44480}
-  @blue_embed %Embed{color: 0x1f95c1}
+  @blue_embed %Embed{color: 0x1F95C1}
 
   Cogs.group("gd")
 
-  Cogs.def class classname do
+  Cogs.def class(classname) do
     Client.trigger_typing(message.channel_id)
-    classname = String.downcase(classname) # TODO: Split to detect methods and such
+    # TODO: Split to detect methods and such
+    classname = String.downcase(classname)
     url = "http://docs.godotengine.org/en/stable/classes/class_#{classname}.html"
     %{body: body, status_code: status_code} = HTTPoison.get!(url)
+
     if status_code === 200 do
       html = Meeseeks.one(body, css("##{classname}"))
       html_title = Meeseeks.one(html, css("h1"))
@@ -23,12 +25,11 @@ defmodule Overdiscord.Commands.GD do
       desc = Enum.map(html_desc, &Meeseeks.text/1) |> Enum.join("\n")
       msgo = "**#{title}**: #{brief}\n\n#{desc}"
       msg = String.slice(msgo, 0, 900)
-      msg = if(byte_size(msg) != byte_size(msgo), do: msg<>"...", else: msg)
+      msg = if(byte_size(msg) != byte_size(msgo), do: msg <> "...", else: msg)
       msg = "#{msg}\n\n#{url}"
       Cogs.say(msg)
     else
       Cogs.say("Invalid Classname")
     end
   end
-
 end
