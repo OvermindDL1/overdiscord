@@ -120,15 +120,29 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_cast(:poll_delay_msgs, state) do
     now = System.system_time(:second)
+    nowdt = Timex.now()
+    users = ExIrc.Client.channel_users(state.client, "#gt-dev")
 
     db_get(state, :set, :delay_msgs)
     |> Enum.map(fn
-      {_time, _host, chan, chan, _msg} -> nil
+      #{_time, _host, chan, chan, _msg} -> nil
+      {%dts{} = datetime, _host, chan, nick, msg} = rec when dts in [DateTime, NaiveDateTime] ->
+        ExIrc.Client.channel_users(state.client, "#gt-dev")
+        if Timex.compare(datetime, nowdt) <= 0 do
+          if (
+            Enum.member?(users, nick) or
+            (db_get(state, :kv, {:joined, nick}) || 0) > (db_get(state, :kv, {:parted, nick}) || 1)
+          ) do
+            IO.inspect(rec, label: :ProcessingDelayDT)
+            send_msg_both("#{nick}{Delay}: #{msg}", chan, state)
+            db_put(state, :set_remove, :delay_msgs, rec)
+          end
+        end
       {time, _host, chan, nick, msg} = rec when time <= now ->
         IO.inspect(rec, label: :ProcessingDelay)
         send_msg_both("#{nick}{Delay}: #{msg}", chan, state)
         db_put(state, :set_remove, :delay_msgs, rec)
-      _ -> nil
+      s -> IO.inspect(s)
     end)
 
     {:noreply, state}
@@ -407,34 +421,42 @@ defmodule Overdiscord.IRC.Bridge do
         lua_eval_msg(state, chan, "return (#{args})")
       end,
       "delay" => fn(cmd, args, auth, chan, state) ->
-        case String.split(args, " ", parts: 2) do
+        case String.split(args, " ", parts: 2, trim: true) do
           [""] ->
             [
-              "Usage: #{cmd} <reltimespec|\"next\"|\"list\"> <msg...>",
+              "Usage: #{cmd} <reltimespec|\"next\"|\"list\"|\"until\"> <msg...>",
               "Example: `?delay 1d2h3m4s message test` will result in a delayed posting of the text `message test` by this bot after 1 day, 2 hours, 3 minutes and 4 seconds.",
             ]
           ["next"] ->
             nic = auth.nick
+            now = System.system_time(:second)
             db_get(state, :set, :delay_msgs)
             |> Enum.filter(fn
               {_time, _host, mchan, nick, _msg} when nick == nic and mchan == chan -> true
               _ -> false
             end)
-            |> Enum.sort_by(&elem(&1, 0))
+            |> Enum.sort_by(fn
+              {%dts{} = datetime, _host, _chan, _nick, _msg} when dts in [NaiveDateTime, DateTime] ->
+              Timex.to_unix(datetime) - now
+              {unixtime, _host, _chan, nick, _msg} -> unixtime
+            end)
             |> case do
                  [{time, _host, _chan, nick, msg} | _rest] ->
-                   now = System.system_time(:second)
-                   dtime =
-                     case db_get(state, :kv, {:setting, {:nick, nick}, :timezone}) do
-                       nil ->
-                         {:ok, dtime} = DateTime.from_unix(time)
-                         dtime
-                       timezone ->
-                         dtime = Timex.from_unix(time)
-                         dtime = Timex.to_datetime(dtime, timezone) # TODO:  Add error checking
-                         Timex.format!(dtime, "{ISO:Extended}")
+                   time =
+                     case time do
+                       %NaiveDateTime{} -> time
+                       %DateTime{} -> time
+                       time ->
+                         case db_get(state, :kv, {:setting, {:nick, nick}, :timezone}) do
+                           nil ->
+                             {:ok, dtime} = DateTime.from_unix(time)
+                             dtime
+                           timezone ->
+                             dtime = Timex.from_unix(time)
+                             Timex.to_datetime(dtime, timezone) # TODO:  Add error checking
+                         end
                      end
-                   "Next pending delay message from #{nick} set to appear at #{to_string(dtime)} (#{time-now}s): #{msg}"
+                   "Next pending delay message from #{nick} set to appear at #{Timex.format!(time, "{ISO:Extended}")}, (#{Timex.to_unix(time)-now}s away): #{msg}"
                  _ -> "No pending messages"
                end
           ["list"] ->
@@ -451,6 +473,101 @@ defmodule Overdiscord.IRC.Bridge do
                  [] -> "No pending messages"
                  lst -> "Pending delays remaining: #{Enum.join(lst, " ")}"
                end
+          ["until"] ->
+            [
+              "Usage: #{cmd} until <abstimespec> <msg...>",
+              "Time format is standard ISO8601 with optional date part (defaults to the current/next 24-hr period)",
+            ]
+          ["until", args] ->
+            [timespec | msg] = String.split(args, " ", parts: 2, trim: 2)
+            {timespec, relative} =
+              case String.split(timespec, "P", parts: 2, trim: 2) do
+                [timespec] -> {timespec, Timex.Duration.parse("PT0S")}
+                [timespec, relative] -> {timespec, Timex.Duration.parse("P"<>relative)}
+              end
+            timespec =
+              if IO.inspect(timespec) == "" do
+                now =
+                  case db_get(state, :kv, {:setting, {:nick, auth.nick}, :timezone}) do
+                    nil -> Timex.now()
+                    timezone -> Timex.now(timezone)
+                  end
+                Timex.format!(now, "{ISO:Extended}")
+                |> String.replace(~R/(+|-)\d\d:\d\d/)|>IO.inspect
+              else
+                timespec
+              end
+            timespec =
+              String.contains?(timespec, "T")
+              |> if do
+                timespec
+              else
+                today = Date.utc_today()
+                year = String.pad_leading(to_string(today.year), 4, "0")
+                month = String.pad_leading(to_string(today.month), 2, "0")
+                day = String.pad_leading(to_string(today.day), 2, "0")
+                "#{year}-#{month}-#{day}T#{timespec}"
+              end
+              |> Timex.parse("{ISO:Extended}")
+              |> case do
+                {:error, _reason} = err -> err
+                {:ok, datetime} ->
+                case relative do
+                  {:error, _reason} = err -> err
+                  {:ok, duration} -> {:ok, Timex.add(datetime, duration)}
+                end
+              end
+              |> case do
+                {:error, _reason} = err -> err
+                {:ok, %DateTime{} = timespec} -> {:ok, timespec}
+                {:ok, %NaiveDateTime{} = timespec} ->
+                  case db_get(state, :kv, {:setting, {:nick, auth.nick}, :timezone}) do
+                    nil -> {:ok, timespec}
+                    timezone ->
+                      now = Timex.now(timezone)
+                      datetime = Map.merge(now, %{timespec | __struct__: DateTime})
+                     # if Timex.compare(datetime, now) < 0 do
+                     #   {:ok, Timex.add(datetime, Timex.Duration.from_days(1))}
+                     # else
+                     #   {:ok, datetime}
+                     # end
+                     {:ok, datetime}
+                  end
+              end
+              |> case do
+                {:error, reason} -> "Timespec error:  #{reason}"
+                {:ok, datetime} ->
+                  case auth do
+                    %{host: "id-16796."<>_, user: "uid16796"} -> 12 # OvermindDL1
+                    %{host: "ltea-"<>_, user: "~Gregorius"} -> 12 # Greg
+                    %{host: "id-276919"<>_, user: "uid276919"} -> 1 # SuperCoder79
+                    _ -> 0
+                  end
+                  |> case do
+                    0 ->
+                      if msg == [] do
+                        "Parsed timespec is for:  #{datetime}"
+                      else
+                        "You are not allowed to use this command"
+                      end
+                    limit ->
+                      if msg == [] do
+                        "Parsed timespec is for: #{datetime}"
+                      else
+                        now = System.system_time(:second)
+                        delays = db_get(state, :set, :delay_msgs)
+                        if limit <= Enum.count(delays, &(elem(&1, 1)==auth.host)) do
+                          "You have too many pending delayed messages, wait until some have elapsed: #{Enum.count(delays, &(elem(&1, 1)==auth.host))}"
+                        else
+                          db_put(state, :set_add, :delay_msgs, {datetime, auth.host, chan, auth.nick, msg})
+                          seconds = Timex.to_unix(datetime)
+                          send_in = if((seconds-now)<0, do: 0, else: seconds*1000)
+                          Process.send_after(self(), :poll_delay_msgs, send_in)
+                          "Delayed message set to occur at #{datetime}"
+                        end
+                      end
+                     end
+              end
           [timespec] ->
             case parse_relativetime_to_seconds(timespec) do
               {:ok, seconds} -> "Parsed timespec is for #{seconds} seconds"
@@ -460,8 +577,7 @@ defmodule Overdiscord.IRC.Bridge do
             case parse_relativetime_to_seconds(timespec) do
               {:error, reason} -> "Invalid timespec: #{reason}"
               {:ok, seconds} ->
-                IO.inspect(ExIrc.Client.channel_users(state.client, "#gt-dev"))
-                case IO.inspect auth do
+                case auth do
                   %{host: "id-16796."<>_, user: "uid16796"} -> 12 # OvermindDL1
                   %{host: "ltea-"<>_, user: "~Gregorius"} -> 12 # Greg
                   %{host: "id-276919"<>_, user: "uid276919"} -> 1 # SuperCoder79
@@ -475,7 +591,6 @@ defmodule Overdiscord.IRC.Bridge do
                        if limit <= Enum.count(delays, &(elem(&1, 1)==auth.host)) do
                          "You have too many pending delayed messages, wait until some have elapsed: #{Enum.count(delays, &(elem(&1, 1)==auth.host))}"
                        else
-                         now = System.system_time(:second)
                          db_put(state, :set_add, :delay_msgs, {now+seconds, auth.host, chan, auth.nick, msg})
                          Process.send_after(self(), :poll_delay_msgs, seconds*1000)
                          "Delayed message added for #{seconds} seconds"
@@ -650,8 +765,8 @@ defmodule Overdiscord.IRC.Bridge do
           [_|_] = msgs -> Enum.map(msgs, &send_msg_both(&1, chan, state.client))
         end
     end
-  rescue e ->
-    IO.inspect(e, label: :COMMAND_EXCEPTION)
+  rescue exc ->
+    IO.puts("COMMAND_EXCEPTION" <> Exception.format(:error, exc))
     send_msg_both("Exception in command execution, report this to OvermindDL1", chan, state.client)
   catch e ->
     IO.inspect(e, label: :COMMAND_CRASH)
