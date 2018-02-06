@@ -27,19 +27,22 @@ defmodule Overdiscord.Mixfile do
 
   defp deps do
     [
+      {:inch_ex, "~> 0.5", only: [:docs, :dev, :test]},
+      {:credo, "~> 0.8", only: [:docs, :dev, :test]},
       {:alchemy, "~> 0.6.1", hex: :discord_alchemy},
       {:httpoison, "~> 0.12.0", override: true},
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
+      {:rustler, "~> 0.16", override: true},
       {:meeseeks, "~> 0.7.2"},
       {:opengraph, "~> 0.1.0"},
       {:cachex, "~> 2.1"},
-      {:exsync, "~> 0.2.1", only: :dev},
-      {:exleveldb, "~> 0.12.2"},
+      {:exsync, "~> 0.2", only: :dev},
+      {:exleveldb, "~> 0.12"},
       {:gen_stage, "~> 0.13", override: true},
       {:quantum, "~> 2.2"},
       {:timex, "~> 3.1"},
-      {:luerl, "~> 0.3.1"},
+      {:luerl, "~> 0.3"},
     ]
   end
 end

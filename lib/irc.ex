@@ -149,7 +149,8 @@ defmodule Overdiscord.IRC.Bridge do
   def handle_info({:connected, _server, _port}, state) do
     IO.inspect("connecting bridge...")
     #IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
-    Process.sleep(200)
+    Process.sleep(500) # TODO:  Blegh!  Check if ExIRC has a better way here, because what on earth...
+    IO.inspect("Connect should be complete")
     ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     {:noreply, state}
   end
@@ -535,7 +536,7 @@ defmodule Overdiscord.IRC.Bridge do
       #"solve" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
       #"derive" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
       #"integrate" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
-      "set" => fn(cmd, arg, auth, chan, state) ->
+      "set" => fn(cmd, arg, auth, _chan, state) ->
         case String.split(String.trim(arg), " ", trim: true, parts: 3) do
           [""] -> "Usage: #{cmd} <scope> <setting> {value}"
           ["me" | args] ->

@@ -1,0 +1,21 @@
+language: elixir
+elixir:
+  - 1.6
+otp_release:
+  - 20.1
+sudo: false
+env:
+  global:
+    - ELIXIR_ASSERT_TIMEOUT=2000
+before_script:
+  - mix deps.get
+  - echo Meeseeks is broken currently, patching it...
+  - sed -i 's|rustler .*|rustler = "^0.16"|' deps/meeseeks_html5ever/native/meeseeks_html5ever_nif/Cargo.toml
+  - echo Meeseeks patching is complete
+script:
+  - mix test
+after_script:
+  - MIX_ENV=docs mix inch.report
+notifications:
+  recipients:
+    - overminddl1@gmail.com

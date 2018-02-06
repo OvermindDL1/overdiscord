@@ -31,7 +31,7 @@ defmodule Overdiscord.Commands do
   def on_msg_edit(%{author: %{bot: _true_or_false, username: username} = author, channel_id: "320192373437104130", content: content}=msg) do
     case content do
       "!" <> _ -> :ok
-      content -> on_msg(%{msg | author: %{author | username: "#{username}{EDIT}"}})
+      _content -> on_msg(%{msg | author: %{author | username: "#{username}{EDIT}"}})
     end
   end
   def on_msg_edit(msg) do
@@ -73,7 +73,7 @@ defmodule Overdiscord.Commands do
                 {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
                   "@#{username}"
                 err ->
-                  IO.inspect("Unable to get member of guild: #{inspect v}")
+                  IO.inspect("Unable to get member of guild: #{inspect v}\n\tError: #{inspect err}")
                   full
               end
           end

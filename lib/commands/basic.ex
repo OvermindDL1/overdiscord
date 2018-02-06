@@ -43,7 +43,7 @@ defmodule Overdiscord.Commands.Basic do
       mem, :kb -> "#{div(mem, 1000)} KB"
       mem, :mb -> "#{div(mem, 1_000_000)} MB"
     end
-    info =[
+    [
       {"Uptime", uptime()},
       {"Processes", "#{processes}"},
       {"Total Memory", mem_format.(memories[:total], :mb)},
@@ -54,7 +54,7 @@ defmodule Overdiscord.Commands.Basic do
       {"ETS Memory", mem_format.(memories[:ets], :kb)},
       {"Atom Memory", mem_format.(memories[:atom], :kb)},
     ]
-    Enum.reduce(info, @red_embed, fn {name, value}, embed ->
+    |> Enum.reduce(@red_embed, fn {name, value}, embed ->
       field(embed, name, value, inline: true)
     end)
     |> Embed.send()
