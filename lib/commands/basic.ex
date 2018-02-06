@@ -3,7 +3,7 @@ defmodule Overdiscord.Commands.Basic do
   alias Alchemy.{Client, Embed}
   import Embed
 
-  @red_embed %Embed{color: 0xd44480}
+  @red_embed %Embed{color: 0xD44480}
 
   # Returns a nicely formatted uptime string
   def uptime do
@@ -11,6 +11,7 @@ defmodule Overdiscord.Commands.Basic do
     min = div(time, 1000 * 60)
     {hours, min} = {div(min, 60), rem(min, 60)}
     {days, hours} = {div(hours, 24), rem(hours, 24)}
+
     Stream.zip([min, hours, days], ["m", "h", "d"])
     |> Enum.reduce("", fn
       {0, _glyph}, acc -> acc
@@ -19,11 +20,11 @@ defmodule Overdiscord.Commands.Basic do
   end
 
   def time_diff(time1, time2, unit \\ :milliseconds) do
-    from =
-      fn
-        %NaiveDateTime{} = x -> x
-        x -> NaiveDateTime.from_iso8601!(x)
-      end
+    from = fn
+      %NaiveDateTime{} = x -> x
+      x -> NaiveDateTime.from_iso8601!(x)
+    end
+
     {time1, time2} = {from.(time1), from.(time2)}
     NaiveDateTime.diff(time1, time2, unit)
   end
@@ -39,10 +40,12 @@ defmodule Overdiscord.Commands.Basic do
     memories = :erlang.memory()
     processes = length(:erlang.processes())
     {{_, io_input}, {_, io_output}} = :erlang.statistics(:io)
+
     mem_format = fn
       mem, :kb -> "#{div(mem, 1000)} KB"
       mem, :mb -> "#{div(mem, 1_000_000)} MB"
     end
+
     [
       {"Uptime", uptime()},
       {"Processes", "#{processes}"},
@@ -52,7 +55,7 @@ defmodule Overdiscord.Commands.Basic do
       {"Code Memory", mem_format.(memories[:code], :mb)},
       {"IO Output", mem_format.(io_output, :mb)},
       {"ETS Memory", mem_format.(memories[:ets], :kb)},
-      {"Atom Memory", mem_format.(memories[:atom], :kb)},
+      {"Atom Memory", mem_format.(memories[:atom], :kb)}
     ]
     |> Enum.reduce(@red_embed, fn {name, value}, embed ->
       field(embed, name, value, inline: true)
