@@ -25,6 +25,19 @@ defmodule Overdiscord.Commands do
     IO.inspect(msg, label: :UnhandledMsg)
   end
 
+  def on_msg_edit(%{author: %{id: "336892378759692289"}}) do
+    # Ignore bot message
+  end
+  def on_msg_edit(%{author: %{bot: _true_or_false, username: username} = author, channel_id: "320192373437104130", content: content}=msg) do
+    case content do
+      "!" <> _ -> :ok
+      content -> on_msg(%{msg | author: %{author | username: "#{username}{EDIT}"}})
+    end
+  end
+  def on_msg_edit(msg) do
+    IO.inspect(msg, label: :EditedMsg)
+  end
+
   def start_link() do
     GenServer.start_link(__MODULE__, [])
   end
@@ -34,6 +47,7 @@ defmodule Overdiscord.Commands do
     use Overdiscord.Commands.GT6
     use Overdiscord.Commands.GD
     Alchemy.Cogs.EventHandler.add_handler({:message_create, {__MODULE__, :on_msg}})
+    Alchemy.Cogs.EventHandler.add_handler({:message_update, {__MODULE__, :on_msg_edit}})
     spawn(fn ->
       Process.sleep(5000)
       # Load entire userlist, at a rate of 100 per minutes because of discord limits

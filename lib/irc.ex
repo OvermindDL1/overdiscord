@@ -86,9 +86,9 @@ defmodule Overdiscord.IRC.Bridge do
         # ExIrc.Client.nick(state.client, state.nick)
         Process.sleep(200)
       end)
-      message_extra(:send_msg, line, nick, "#gt-dev", state)
-      Process.sleep(200)
     end)
+    Process.sleep(200)
+    message_extra(:send_msg, msg, nick, "#gt-dev", state)
     {:noreply, state}
   end
 
@@ -123,6 +123,7 @@ defmodule Overdiscord.IRC.Bridge do
 
     db_get(state, :set, :delay_msgs)
     |> Enum.map(fn
+      {_time, _host, chan, chan, _msg} -> nil
       {time, _host, chan, nick, msg} = rec when time <= now ->
         IO.inspect(rec, label: :ProcessingDelay)
         send_msg_both("#{nick}{Delay}: #{msg}", chan, state)
@@ -418,7 +419,16 @@ defmodule Overdiscord.IRC.Bridge do
             |> case do
                  [{time, _host, _chan, nick, msg} | _rest] ->
                    now = System.system_time(:second)
-                   {:ok, dtime} = DateTime.from_unix(time)
+                   dtime =
+                     case db_get(state, :kv, {:setting, {:nick, nick}, :timezone}) do
+                       nil ->
+                         {:ok, dtime} = DateTime.from_unix(time)
+                         dtime
+                       timezone ->
+                         dtime = Timex.from_unix(time)
+                         dtime = Timex.to_datetime(dtime, timezone) # TODO:  Add error checking
+                         Timex.format!(dtime, "{ISO:Extended}")
+                     end
                    "Next pending delay message from #{nick} set to appear at #{to_string(dtime)} (#{time-now}s): #{msg}"
                  _ -> "No pending messages"
                end
@@ -521,6 +531,32 @@ defmodule Overdiscord.IRC.Bridge do
       #"solve" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
       #"derive" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
       #"integrate" => &mdlt(&1, &2, &4, &5, [ignore: &3]),
+      "set" => fn(cmd, arg, auth, chan, state) ->
+        case String.split(String.trim(arg), " ", trim: true, parts: 3) do
+          [""] -> "Usage: #{cmd} <scope> <setting> {value}"
+          ["me" | args] ->
+            case args do
+              ["timezone"] ->
+                v = db_get(state, :kv, {:setting, {:nick, auth.nick}, :timezone})
+                [
+                  "Current value: #{v || "<unset>"}",
+                  "To clear the setting use \"clear\", else use an official timezone designation name such as `America/Chicago` or `-4`.  Use an official name to 'maybe' support daylight savings",
+                ]
+              ["timezone", "clear"] ->
+                db_delete(state, :kv, {:setting, {:nick, auth.nick}, :timezone})
+                "Cleared `timezone`"
+              ["timezone", timezone] ->
+                case Timex.now(timezone) do
+                  {:error, _reason} -> "Invalid timezone designation"
+                  %{time_zone: timezone} ->
+                    db_put(state, :kv, {:setting, {:nick, auth.nick}, :timezone}, timezone)
+                    "Successfully set timezone to: #{timezone}"
+                end
+              _ -> "unknown setting name in the user scope of:  #{List.first(args)}"
+            end
+          _ -> "Unknown scope"
+        end
+      end,
       "lastseen" => fn(_cmd, arg, _auth, chan, state) ->
         arg = String.trim(arg)
         case db_get(state, :kv, {:lastseen, arg}) do
@@ -569,15 +605,6 @@ defmodule Overdiscord.IRC.Bridge do
         end
         nil
       end,
-      # "mcve" => "How to create a Minimal, Complete, and Verifiable example:  https://stackoverflow.com/help/mcve",
-      # "sscce" => "Please provide a Short, Self Contained, Correct Example:  http://sscce.org/",
-      # "xy" => "Please describe your actual problem instead of your attempted solution:  http://xyproblem.info/",
-      # "bds" => [
-      #   "Baby duck syndrome is the tendency for computer users to 'imprint' on the first system they learn, then judge other systems by their similarity to that first system.  The result is that users generally prefer systems similar to those they learned on and dislike unfamiliar systems.  It can make it hard for you to make the most rational decision about which software to use or when the learning curve of a given thing is",
-      #   "worth the climb.  In general, it makes the familiar seem more efficient and the unfamiliar less so.  In the short run, this is probably true -- if you're late for a deadline, the best thing to do is not to switch to a new operating system in the hopes that your productivity will increase.",
-      #   "In the long run, it's worth trying a few things knowing that they won't all work out, but hoping to find tools that match your style best. -- https://blog.codinghorror.com/the-software-imprinting-dilemma/",
-      # ],
-      "discordstatus" => "https://discord.statuspage.io/",
     }
 
     case Map.get(cache, cmd) do
@@ -617,7 +644,13 @@ defmodule Overdiscord.IRC.Bridge do
             end)
           [_|_] = msgs -> Enum.map(msgs, &send_msg_both(&1, chan, state.client))
         end
-     end
+    end
+  rescue e ->
+    IO.inspect(e, label: :COMMAND_EXCEPTION)
+    send_msg_both("Exception in command execution, report this to OvermindDL1", chan, state.client)
+  catch e ->
+    IO.inspect(e, label: :COMMAND_CRASH)
+    send_msg_both("Crash in command execution, report this to OvermindDL1", chan, state.client)
   end
 
   def message_cmd_url_with_summary(url, chan, client) do
