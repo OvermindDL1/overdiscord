@@ -9,10 +9,10 @@ addons:
       - cargo
 sudo: false
 cache:
-  rust
   directories:
     - deps
     - _build
+    - $HOME/.cargo
 env:
   global:
     - ELIXIR_ASSERT_TIMEOUT=2000
