@@ -12,6 +12,7 @@ cache:
   rust
   directories:
     - deps
+    - _build
 env:
   global:
     - ELIXIR_ASSERT_TIMEOUT=2000
@@ -23,9 +24,9 @@ before_script:
   - echo Meeseeks patching is complete
 script:
   - mix compile # test
-after_script:
-  - MIX_ENV=docs mix inch.report
   - mix format --check-formatted
+after_script:
+  - mix inch.report
 notifications:
   recipients:
     - overminddl1@gmail.com
