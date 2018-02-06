@@ -8,6 +8,8 @@ addons:
     packages:
       - cargo
 sudo: false
+before_cache:
+  - rm -r _build/dev/lib/overdiscord
 cache:
   directories:
     - deps
