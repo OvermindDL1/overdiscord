@@ -407,7 +407,11 @@ defmodule Overdiscord.IRC.Bridge do
       end,
       "delay" => fn(cmd, args, auth, chan, state) ->
         case String.split(args, " ", parts: 2) do
-          [""] -> "Usage: #{cmd} <reltimespec|\"next\"|\"list\"> <msg...>\nExample: \"?delay 1d2h3m4s message test\" will result in a delayed posting of the text \"message test\" by overbot after 1 day, 2 hours, 3 minutes and 4 seconds."
+          [""] ->
+            [
+              "Usage: #{cmd} <reltimespec|\"next\"|\"list\"> <msg...>",
+              "Example: `?delay 1d2h3m4s message test` will result in a delayed posting of the text `message test` by this bot after 1 day, 2 hours, 3 minutes and 4 seconds.",
+            ]
           ["next"] ->
             nic = auth.nick
             db_get(state, :set, :delay_msgs)
