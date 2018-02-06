@@ -1,9 +1,11 @@
 defmodule Overdiscord do
   @moduledoc """
+  Central Application and Supervisor for the various systems.
   """
 
   use Application
 
+  @doc "Application entrance location, unused args"
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
 
