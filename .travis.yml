@@ -9,7 +9,7 @@ addons:
       - cargo
 sudo: false
 before_cache:
-  - rm -r _build/dev/lib/overdiscord
+  - rm -r _build/dev/lib/overdiscord deps/certifi/.rebar3/erlcinfo
 cache:
   directories:
     - deps
@@ -20,15 +20,13 @@ env:
     - ELIXIR_ASSERT_TIMEOUT=2000
 before_script:
   - mix deps.get
-  - echo Meeseeks is broken currently, patching it...
-  - sed -i 's|rustler .*|rustler = "^0.16"|' deps/meeseeks_html5ever/native/meeseeks_html5ever_nif/Cargo.toml
-  - echo Meeseeks patching is complete
   - mix deps.compile
 script:
   - mix compile # test
   - mix format --check-formatted
-after_script:
   - mix inch.report
+after_script:
+  - echo Complete
 notifications:
   recipients:
     - overminddl1@gmail.com
