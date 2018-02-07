@@ -497,7 +497,7 @@ defmodule Overdiscord.IRC.Bridge do
               {%dts{} = datetime, _host, _chan, _nick, _msg} when dts in [NaiveDateTime, DateTime] ->
                 Timex.to_unix(datetime) - now
 
-              {unixtime, _host, _chan, nick, _msg} ->
+              {unixtime, _host, _chan, _nick, _msg} ->
                 unixtime
             end)
             |> case do
@@ -571,7 +571,7 @@ defmodule Overdiscord.IRC.Bridge do
                   end
 
                 Timex.format!(now, "{ISO:Extended}")
-                |> String.replace(~R/(\+|-)\d\d:\d\d/)
+                |> String.replace(~R/(\+|-)\d\d:\d\d/, "")
                 |> IO.inspect()
               else
                 timespec
@@ -1341,9 +1341,6 @@ defmodule Overdiscord.IRC.Bridge do
   defp reltime_mult("M" <> rest), do: {:ok, 60 * 60 * 24 * 30, rest}
   defp reltime_mult("y" <> rest), do: {:ok, 60 * 60 * 24 * 365, rest}
   defp reltime_mult(str), do: {:error, "Invalid multiplier spec: #{str}"}
-
-  defp seconds_to_reltime(seconds) do
-  end
 
   def mdlt(op, expr, chan, state, opts \\ []) do
     pid =

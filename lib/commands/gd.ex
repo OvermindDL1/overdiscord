@@ -4,7 +4,7 @@ defmodule Overdiscord.Commands.GD do
   import Meeseeks.CSS
 
   # @red_embed %Embed{color: 0xd44480}
-  @blue_embed %Embed{color: 0x1F95C1}
+  # @blue_embed %Embed{color: 0x1F95C1}
 
   Cogs.group("gd")
 
