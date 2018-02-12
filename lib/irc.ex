@@ -24,6 +24,10 @@ defmodule Overdiscord.IRC.Bridge do
     :gen_server.cast(:irc_bridge, {:send_msg, nick, msg})
   end
 
+  def on_presence_update(nick, game) do
+    :gen_server.cast(:irc_bridge, {:on_presence_update, nick, game})
+  end
+
   def list_users() do
     IO.inspect("Listing users")
     :gen_server.cast(:irc_bridge, :list_users)
@@ -97,6 +101,58 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
+  def handle_cast({:on_presence_update, "Bear989" = nick, stream}, state) do
+    case {db_get(state, :kv, {:presence, nick}), stream} do
+      # No change in cache
+      {^stream, _} ->
+        :ok
+
+      {"[Bears Den]" <> _, "[Bears Den] <> _"} ->
+        [
+          "Bear changed stream to: #{stream}",
+          "See the stream at:  https://gaming.youtube.com/c/aBear989/live"
+        ]
+        |> send_msg_both("#gt-dev", state.client, discord: :simple)
+
+        db_put(state, :kv, {:presence, nick}, stream)
+
+      {"[Bears Den]" <> _, _} ->
+        send_msg_both("Bear stopped streaming", "#gt-dev", state.client, discord: :simple)
+        db_put(state, :kv, {:presence, nick}, stream)
+
+      {_, "[Bears Den]" <> _} ->
+        [
+          "Bear has started streaming: #{stream}",
+          "See the stream at:  https://gaming.youtube.com/c/aBear989/live"
+        ]
+        |> send_msg_both("#gt-dev", state.client, discord: :simple)
+
+        db_put(state, :kv, {:presence, nick}, stream)
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_cast({:on_presence_update, nick, game}, state) do
+    IO.inspect({nick, game}, label: "Presence Update")
+
+    case db_get(state, :kv, {:lastseen, nick}) do
+      %NaiveDateTime{} when false == nick ->
+        msg =
+          case game do
+            nil -> "#{nick} is no longer playing any game"
+            _ -> "#{nick} is now playing: #{game}"
+          end
+
+        ExIrc.Client.msg(state.client, :notice, "#gt-dev", "> " <> msg)
+
+      _nil ->
+        nil
+    end
+
+    {:noreply, state}
+  end
+
   def handle_cast(:poll_xkcd, state) do
     import Meeseeks.CSS
     rss_url = "https://xkcd.com/rss.xml"
@@ -158,7 +214,8 @@ defmodule Overdiscord.IRC.Bridge do
         db_put(state, :set_remove, :delay_msgs, rec)
 
       s ->
-        IO.inspect(s)
+        # IO.inspect(s, label: "Poll delay rest")
+        s
     end)
 
     {:noreply, state}
@@ -176,11 +233,11 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info({:connected, _server, _port}, state) do
-    IO.inspect("connecting bridge...")
+    IO.inspect("connecting bridge...", label: "State")
     # IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
     # TODO:  Blegh!  Check if ExIRC has a better way here, because what on earth...
-    Process.sleep(500)
-    IO.inspect("Connect should be complete")
+    Process.sleep(3000)
+    IO.inspect("Connect should be complete", label: "State")
     ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     {:noreply, state}
   end
@@ -205,7 +262,7 @@ defmodule Overdiscord.IRC.Bridge do
       omsg ->
         if(user === "~Gregorius", do: handle_greg(msg, state.client))
         msg = convert_message_to_discord(msg)
-        IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}")
+        IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}", label: "State")
         Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
         message_extra(:msg, omsg, auth, chan, state)
     end
@@ -235,7 +292,7 @@ defmodule Overdiscord.IRC.Bridge do
     db_user_messaged(state, auth, action)
     if(user === "~Gregorius", do: handle_greg(action, state.client))
     action = convert_message_to_discord(action)
-    IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}")
+    IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}", label: "State")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
     message_extra(:me, action, auth, chan, state)
     {:noreply, state}
@@ -250,12 +307,19 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info({:unrecognized, type, msg}, state) do
-    IO.inspect("Unrecognized Message with type #{inspect(type)} and msg of: #{inspect(msg)}")
+    IO.inspect(
+      "Unrecognized Message with type #{inspect(type)} and msg of: #{inspect(msg)}",
+      label: "Fallthrough"
+    )
+
     {:noreply, state}
   end
 
   def handle_info({:joined, chan, %{host: host, nick: nick, user: user}}, state) do
-    IO.inspect("#{chan}: User `#{user}` with nick `#{nick}` joined from `#{host}`")
+    IO.inspect(
+      "#{chan}: User `#{user}` with nick `#{nick}` joined from `#{host}`",
+      label: "State"
+    )
 
     case db_get(state, :kv, {:joined, nick}) do
       nil ->
@@ -285,13 +349,17 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info({:parted, chan, %{host: host, nick: nick, user: user}}, state) do
-    IO.inspect("#{chan}: User `#{user}` with nick `#{nick} parted from `#{host}`")
+    IO.inspect("#{chan}: User `#{user}` with nick `#{nick} parted from `#{host}`", label: "State")
     db_put(state, :kv, {:parted, user}, NaiveDateTime.utc_now())
     {:noreply, state}
   end
 
   def handle_info({:quit, msg, %{host: host, nick: nick, user: user}}, state) do
-    IO.inspect("User `#{user}` with nick `#{nick}` at host `#{host}` quit with message: #{msg}")
+    IO.inspect(
+      "User `#{user}` with nick `#{nick}` at host `#{host}` quit with message: #{msg}",
+      label: "State"
+    )
+
     # state = put_in(state.meta.logouts[host], :erlang.now())
     {:noreply, state}
   end
@@ -302,7 +370,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_info(msg, state) do
-    IO.inspect("Unknown IRC message: #{inspect(msg)}")
+    IO.inspect("Unknown IRC message: #{inspect(msg)}", label: "Fallthrough")
     {:noreply, state}
   end
 
@@ -359,34 +427,42 @@ defmodule Overdiscord.IRC.Bridge do
 
   def alchemy_channel(), do: "320192373437104130"
 
-  def send_msg_both(msgs, chan, client, prefix \\ "> ")
+  def send_msg_both(msgs, chan, client, opts \\ [])
 
-  def send_msg_both(msgs, chan, %{client: client}, prefix) do
-    send_msg_both(msgs, chan, client, prefix)
+  def send_msg_both(msgs, chan, %{client: client}, opts) do
+    send_msg_both(msgs, chan, client, opts)
   end
 
-  def send_msg_both(msgs, chan, client, prefix) do
-    msgs
-    |> List.wrap()
-    |> Enum.map(fn msg ->
-      msg
-      |> String.split("\\n")
+  def send_msg_both(msgs, chan, client, opts) do
+    prefix = opts[:prefix] || "> "
+
+    if opts[:irc] != false do
+      msgs
+      |> List.wrap()
       |> Enum.map(fn msg ->
         msg
-        |> split_at_irc_max_length()
-        |> List.flatten()
+        |> String.split("\\n")
         |> Enum.map(fn msg ->
-          ExIrc.Client.msg(client, :privmsg, chan, prefix <> msg)
-          Process.sleep(200)
+          msg
+          |> split_at_irc_max_length()
+          |> List.flatten()
+          |> Enum.map(fn msg ->
+            ExIrc.Client.msg(client, :privmsg, chan, prefix <> msg)
+            Process.sleep(200)
+          end)
         end)
       end)
-    end)
+    end
 
-    if chan == "#gt-dev" do
+    if opts[:discord] != false and chan == "#gt-dev" do
       amsg =
-        convert_message_to_discord(
+        if opts[:discord] == :simple do
           prefix <> String.replace(Enum.join(List.wrap(msgs)), "\\n", "\n#{prefix}")
-        )
+        else
+          convert_message_to_discord(
+            prefix <> String.replace(Enum.join(List.wrap(msgs)), "\\n", "\n#{prefix}")
+          )
+        end
 
       Alchemy.Client.send_message(alchemy_channel(), amsg)
     end
@@ -461,12 +537,12 @@ defmodule Overdiscord.IRC.Bridge do
         "https://lmgtfy.com/?q=#{URI.encode(args)}"
       end,
       "wiki" => fn _cmd, args, _auth, chan, state ->
-        url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}")
+        url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}", label: "Lookup")
         message_cmd_url_with_summary(url, chan, state.client)
         nil
       end,
       "ftbwiki" => fn _cmd, args, _auth, chan, state ->
-        url = IO.inspect("https://ftb.gamepedia.com/#{URI.encode(args)}")
+        url = IO.inspect("https://ftb.gamepedia.com/#{URI.encode(args)}", label: "Lookup")
         message_cmd_url_with_summary(url, chan, state.client)
         nil
       end,
@@ -475,6 +551,44 @@ defmodule Overdiscord.IRC.Bridge do
       end,
       "calc" => fn _cmd, args, _auth, chan, state ->
         lua_eval_msg(state, chan, "return (#{args})")
+      end,
+      "status" => fn cmd, args, _auth, _chan, state ->
+        case args do
+          "" ->
+            "Syntax: #{cmd} <username>"
+
+          _ ->
+            case Alchemy.Cache.search(:members, &(&1.user.username == args)) do
+              [] ->
+                "Unable to locate member_id of: #{args}"
+
+              [%{user: %{id: id}}] ->
+                case Alchemy.Cache.presence("225742287991341057", id) do
+                  {:ok, %Alchemy.Guild.Presence{game: game, status: status}} ->
+                    game = if(game == nil, do: "", else: " and is running #{game}")
+
+                    lastseen =
+                      case db_get(state, :kv, {:lastseen, args}) do
+                        nil ->
+                          "has not been seen active here yet"
+
+                        date ->
+                          now = System.system_time(:seconds)
+                          ago = now - Timex.to_unix(date)
+                          "was last seen active here at `#{date}` (#{ago}s ago)"
+                      end
+
+                    "#{args} is `#{status}` and #{lastseen}#{game}"
+
+                  _error ->
+                    "No status information in the cache for: #{args}"
+                end
+
+              [_ | _] = members ->
+                IO.inspect(members, label: "Multiple Members?!")
+                "Found multiple members?!"
+            end
+        end
       end,
       "delay" => fn cmd, args, auth, chan, state ->
         case String.split(args, " ", parts: 2, trim: true) do
@@ -563,7 +677,7 @@ defmodule Overdiscord.IRC.Bridge do
               end
 
             timespec =
-              if IO.inspect(timespec) == "" do
+              if timespec == "" do
                 now =
                   case db_get(state, :kv, {:setting, {:nick, auth.nick}, :timezone}) do
                     nil -> Timex.now()
@@ -572,7 +686,7 @@ defmodule Overdiscord.IRC.Bridge do
 
                 Timex.format!(now, "{ISO:Extended}")
                 |> String.replace(~R/(\+|-)\d\d:\d\d/, "")
-                |> IO.inspect()
+                |> IO.inspect(label: "Timespec Test")
               else
                 timespec
               end

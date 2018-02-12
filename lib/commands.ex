@@ -63,6 +63,38 @@ defmodule Overdiscord.Commands do
     IO.inspect(msg, label: :EditedMsg)
   end
 
+  def on_presence_update(
+        %{
+          guild_id: "225742287991341057" = guild_id,
+          status: "online",
+          game: game,
+          user: %{bot: false, id: id}
+        } = _presence
+      ) do
+    # IO.inspect(presence, label: "Presence")
+
+    case Alchemy.Cache.member(guild_id, id) do
+      {:ok, %Alchemy.Guild.GuildMember{user: %{username: nick}}} when is_binary(nick) ->
+        # IO.inspect({nick, presence}, label: "Presence Update")
+        Overdiscord.IRC.Bridge.on_presence_update(nick, game)
+
+      {:ok, _member} ->
+        # Ignored Presence
+        # IO.inspect(_member, label: "Presence Member Ignored")
+        :ok
+
+      _ ->
+        # Not a valid member
+        :ok
+    end
+  end
+
+  def on_presence_update(_presence) do
+    # Unhandled presence
+    # IO.inspect(_presence, label: "Unhandled Presence")
+    :ok
+  end
+
   def start_link() do
     GenServer.start_link(__MODULE__, [])
   end
@@ -73,6 +105,7 @@ defmodule Overdiscord.Commands do
     use Overdiscord.Commands.GD
     Alchemy.Cogs.EventHandler.add_handler({:message_create, {__MODULE__, :on_msg}})
     Alchemy.Cogs.EventHandler.add_handler({:message_update, {__MODULE__, :on_msg_edit}})
+    Alchemy.Cogs.EventHandler.add_handler({:presence_update, {__MODULE__, :on_presence_update}})
 
     spawn(fn ->
       Process.sleep(5000)
