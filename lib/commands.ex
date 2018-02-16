@@ -66,12 +66,12 @@ defmodule Overdiscord.Commands do
   def on_presence_update(
         %{
           guild_id: "225742287991341057" = guild_id,
-          status: "online",
+          # status: "online",
           game: game,
           user: %{bot: false, id: id}
-        } = _presence
+        } = presence
       ) do
-    # IO.inspect(presence, label: "Presence")
+    IO.inspect(presence, label: "Presence")
 
     case Alchemy.Cache.member(guild_id, id) do
       {:ok, %Alchemy.Guild.GuildMember{user: %{username: nick}}} when is_binary(nick) ->
@@ -83,8 +83,13 @@ defmodule Overdiscord.Commands do
         # IO.inspect(_member, label: "Presence Member Ignored")
         :ok
 
-      _ ->
+      _member ->
         # Not a valid member
+        # IO.inspect(_member, label: "Presence Invalid Member")
+        if id == "225728625238999050" do
+          Overdiscord.IRC.Bridge.on_presence_update("Bear989", game)
+        end
+
         :ok
     end
   end

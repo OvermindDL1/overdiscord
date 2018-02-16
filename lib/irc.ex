@@ -101,7 +101,9 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_cast({:on_presence_update, "Bear989" = nick, stream}, state) do
+  def handle_cast({:on_presence_update, "<off>Bear989" = nick, stream}, state) do
+    IO.inspect({nick, stream}, label: "BearPresence")
+
     case {db_get(state, :kv, {:presence, nick}), stream} do
       # No change in cache
       {^stream, _} ->
@@ -128,6 +130,10 @@ defmodule Overdiscord.IRC.Bridge do
         |> send_msg_both("#gt-dev", state.client, discord: :simple)
 
         db_put(state, :kv, {:presence, nick}, stream)
+
+      {_, _} ->
+        # Playing something else...
+        nil
     end
 
     {:noreply, state}
@@ -137,18 +143,58 @@ defmodule Overdiscord.IRC.Bridge do
     IO.inspect({nick, game}, label: "Presence Update")
 
     case db_get(state, :kv, {:lastseen, nick}) do
-      %NaiveDateTime{} when false == nick ->
-        msg =
-          case game do
-            nil -> "#{nick} is no longer playing any game"
-            _ -> "#{nick} is now playing: #{game}"
-          end
+      %NaiveDateTime{} when nick == "Bear989" ->
+        case db_get(state, :kv, {:presence, nick}) do
+          ^game ->
+            :ok
 
-        ExIrc.Client.msg(state.client, :notice, "#gt-dev", "> " <> msg)
+          _oldpresence ->
+            case game do
+              nil ->
+                ExIrc.Client.msg(
+                  state.client,
+                  :privmsg,
+                  "#gt-dev",
+                  "> #{nick} is no longer playing or streaming"
+                )
+
+              _ ->
+                ExIrc.Client.msg(
+                  state.client,
+                  :privmsg,
+                  "#gt-dev",
+                  "> #{nick} is now playing/streaming: #{game}"
+                )
+
+                if nick == "Bear989" do
+                  ExIrc.Client.msg(
+                    state.client,
+                    :privmsg,
+                    "#gt-dev",
+                    "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
+                  )
+
+                  case IO.inspect(
+                         Overdiscord.SiteParser.get_summary(
+                           "https://gaming.youtube.com/c/aBear989/live"
+                         ),
+                         label: :StreamSummary
+                       ) do
+                    nil ->
+                      "No information found at URL"
+
+                    summary ->
+                      ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
+                  end
+                end
+            end
+        end
 
       _nil ->
         nil
     end
+
+    db_put(state, :kv, {:presence, nick}, game)
 
     {:noreply, state}
   end
@@ -592,19 +638,19 @@ defmodule Overdiscord.IRC.Bridge do
       end,
       "delay" => fn cmd, args, auth, chan, state ->
         case String.split(args, " ", parts: 2, trim: true) do
-          [""] ->
+          [] ->
             [
-              "Usage: #{cmd} <reltimespec|\"next\"|\"list\"|\"until\"> <msg...>",
+              "Usage: #{cmd} <reltimespec|\"next\"|\"list\"|\"until\"|\"remove\"> <msg...>",
               "Example: `?delay 1d2h3m4s message test` will result in a delayed posting of the text `message test` by this bot after 1 day, 2 hours, 3 minutes and 4 seconds."
             ]
 
-          ["next"] ->
+          ["remove" | removeable] ->
             nic = auth.nick
             now = System.system_time(:second)
 
             db_get(state, :set, :delay_msgs)
             |> Enum.filter(fn
-              {_time, _host, mchan, nick, _msg} when nick == nic and mchan == chan -> true
+              {_time, _host, ^chan, ^nic, _msg} -> true
               _ -> false
             end)
             |> Enum.sort_by(fn
@@ -614,6 +660,77 @@ defmodule Overdiscord.IRC.Bridge do
               {unixtime, _host, _chan, _nick, _msg} ->
                 unixtime
             end)
+            |> case do
+              [] ->
+                "No pending delays to remove"
+
+              [{_time, _host, _chan, _nick, msg} = rec | _rest] = msgs ->
+                case removeable do
+                  next when next in [[], ["next"]] ->
+                    # time = if(is_integer(time), do: Timex.from_unix(time), else: time)
+                    db_put(state, :set_remove, :delay_msgs, rec)
+                    "Removed next pending delay that had the message: #{msg}"
+
+                  [search_string] ->
+                    case Integer.parse(search_string) do
+                      {idx, ""} -> Enum.at(msgs, idx)
+                      _ -> Enum.find(msgs, &String.contains?(elem(&1, 4), search_string))
+                    end
+                    |> case do
+                      nil ->
+                        "No message found that contains: #{search_string}"
+
+                      {_time, _host, _chan, _nick, msg} = rec ->
+                        db_put(state, :set_remove, :delay_msgs, rec)
+                        "Removed next pending delay that had the message: #{msg}"
+                    end
+                end
+            end
+
+          ["next" | searchable] ->
+            nic = auth.nick
+            now = System.system_time(:second)
+
+            searchable =
+              case searchable do
+                [] ->
+                  nil
+
+                [search_string] ->
+                  case Integer.parse(search_string) do
+                    {idx, ""} -> idx
+                    _ -> search_string
+                  end
+              end
+
+            db_get(state, :set, :delay_msgs)
+            |> Enum.filter(fn
+              {_time, _host, ^chan, ^nic, msg} ->
+                case searchable do
+                  nil -> true
+                  idx -> true
+                  search_string -> String.contains?(msg, search_string)
+                end
+
+              _ ->
+                false
+            end)
+            |> Enum.sort_by(fn
+              {%dts{} = datetime, _host, _chan, _nick, _msg} when dts in [NaiveDateTime, DateTime] ->
+                Timex.to_unix(datetime)
+
+              {unixtime, _host, _chan, _nick, _msg} ->
+                unixtime
+            end)
+            |> case do
+              lst ->
+                if is_integer(searchable) do
+                  Enum.at(lst, searchable, lst)
+                  |> List.wrap()
+                else
+                  lst
+                end
+            end
             |> case do
               [{time, _host, _chan, nick, msg} | _rest] ->
                 time =
@@ -655,7 +772,13 @@ defmodule Overdiscord.IRC.Bridge do
               _ -> false
             end)
             |> Enum.sort_by(&elem(&1, 0))
-            |> Enum.map(&"#{to_string(elem(&1, 0) - now)}s")
+            |> Enum.map(fn
+              {unixtime, _host, _chan, _nick, _msg} when is_integer(unixtime) ->
+                "#{unixtime - now}s"
+
+              {time, _host, _chan, _nick, _msg} ->
+                to_string(time)
+            end)
             |> case do
               [] -> "No pending messages"
               lst -> "Pending delays remaining: #{Enum.join(lst, " ")}"
@@ -1060,8 +1183,12 @@ defmodule Overdiscord.IRC.Bridge do
           _ ->
             # Check for phrases
             case db_get(state, :kv, {:phrase, cmd}) do
-              nil -> nil
-              phrase -> send_msg_both(phrase, chan, state.client)
+              nil ->
+                nil
+
+              phrase ->
+                send_msg_both(phrase, chan, state.client)
+                message_extra(:phrase, args, auth, chan, state)
             end
         end
 
