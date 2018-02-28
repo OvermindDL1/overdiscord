@@ -184,6 +184,7 @@ defmodule Overdiscord.IRC.Bridge do
                       "No information found at URL"
 
                     summary ->
+                      [summary | _] = String.split(summary, " - YouTube Gaming :")
                       ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
                   end
                 end
@@ -708,7 +709,7 @@ defmodule Overdiscord.IRC.Bridge do
               {_time, _host, ^chan, ^nic, msg} ->
                 case searchable do
                   nil -> true
-                  idx -> true
+                  idx when is_integer(idx) -> true
                   search_string -> String.contains?(msg, search_string)
                 end
 

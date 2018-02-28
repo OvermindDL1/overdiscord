@@ -35,9 +35,13 @@ defmodule Overdiscord.SiteParser do
 
   def get_summary(url, opts) do
     IO.inspect({url, opts})
-    %{body: body, status_code: status_code, headers: headers} = _response = HTTPoison.get!(url)
+
+    %{body: body, status_code: status_code, headers: headers} =
+      _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
 
     case status_code do
+      code when code >= 400 and code <= 499 ->
+        "Page does not exist"
       code when code >= 300 and code <= 399 ->
         IO.inspect(headers, label: :Headers)
 
@@ -122,8 +126,11 @@ defmodule Overdiscord.SiteParser do
          d <- Meeseeks.attr(de, "content") |> get_first_line_trimmed(),
          do:
            (case {t, d} do
+              {"Imgur", "Imgur"} -> nil
               {^imgur, ^imgur} -> nil
+              {"Imgur", _} -> d
               {^imgur, _} -> d
+              {_, "Imgur"} -> t
               {_, ^imgur} -> t
               {_, nil} -> t
               {_, ""} -> t

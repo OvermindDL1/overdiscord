@@ -69,9 +69,9 @@ defmodule Overdiscord.Commands do
           # status: "online",
           game: game,
           user: %{bot: false, id: id}
-        } = presence
+        } = _presence
       ) do
-    IO.inspect(presence, label: "Presence")
+    # IO.inspect(presence, label: "Presence")
 
     case Alchemy.Cache.member(guild_id, id) do
       {:ok, %Alchemy.Guild.GuildMember{user: %{username: nick}}} when is_binary(nick) ->
