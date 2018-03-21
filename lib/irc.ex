@@ -149,46 +149,42 @@ defmodule Overdiscord.IRC.Bridge do
             :ok
 
           _oldpresence ->
-            case game do
+            case Overdiscord.SiteParser.get_summary("https://gaming.youtube.com/c/aBear989/live") do
               nil ->
-                ExIrc.Client.msg(
-                  state.client,
-                  :privmsg,
-                  "#gt-dev",
-                  "> #{nick} is no longer playing or streaming"
-                )
+                IO.inspect("No response from youtube!", label: :YoutubeError)
 
-              _ ->
-                case Overdiscord.SiteParser.get_summary(
-                       "https://gaming.youtube.com/c/aBear989/live"
-                     ) do
-                  nil ->
-                    IO.inspect("No response from youtube!", label: :YoutubeError)
-
-                  summary ->
-                    case db_get(state, :kb, {:presence_yt, nick}) do
-                      ^summary ->
-                        :no_change
-
-                      _old_summary ->
-                        ExIrc.Client.msg(
-                          state.client,
-                          :privmsg,
-                          "#gt-dev",
-                          "> #{nick} is now playing/streaming: #{game}"
-                        )
-
-                        ExIrc.Client.msg(
-                          state.client,
-                          :privmsg,
-                          "#gt-dev",
-                          "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
-                        )
-
-                        [summary | _] = String.split(summary, " - YouTube Gaming :")
-                        IO.inspect(summary, label: "BearUpdate")
-                        ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
+              summary ->
+                case db_get(state, :kb, {:presence_yt, nick}) do
+                  ^summary ->
+                    if game == nil do
+                      ExIrc.Client.msg(
+                        state.client,
+                        :privmsg,
+                        "#gt-dev",
+                        "> #{nick} is no longer playing or streaming"
+                      )
                     end
+
+                  _old_summary ->
+                    db_put(state, :kv, {:presence_yt, nick}, summary)
+
+                    ExIrc.Client.msg(
+                      state.client,
+                      :privmsg,
+                      "#gt-dev",
+                      "> #{nick} is now playing/streaming: #{game}"
+                    )
+
+                    ExIrc.Client.msg(
+                      state.client,
+                      :privmsg,
+                      "#gt-dev",
+                      "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
+                    )
+
+                    [summary | _] = String.split(summary, " - YouTube Gaming :")
+                    IO.inspect(summary, label: "BearUpdate")
+                    ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
                 end
             end
         end
