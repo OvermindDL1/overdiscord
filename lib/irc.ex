@@ -163,7 +163,7 @@ defmodule Overdiscord.IRC.Bridge do
                        "https://gaming.youtube.com/c/aBear989/live"
                      ) do
                   nil ->
-                    IO.inspect("No response from youtube!", :YoutubeError)
+                    IO.inspect("No response from youtube!", label: :YoutubeError)
 
                   summary ->
                     case db_get(state, :kb, {:presence_yt, nick}) do
@@ -186,6 +186,7 @@ defmodule Overdiscord.IRC.Bridge do
                         )
 
                         [summary | _] = String.split(summary, " - YouTube Gaming :")
+                        IO.inspect(summary, label: "BearUpdate")
                         ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
                     end
                 end
