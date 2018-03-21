@@ -657,7 +657,8 @@ defmodule Overdiscord.IRC.Bridge do
               _ -> false
             end)
             |> Enum.sort_by(fn
-              {%dts{} = datetime, _host, _chan, _nick, _msg} when dts in [NaiveDateTime, DateTime] ->
+              {%dts{} = datetime, _host, _chan, _nick, _msg}
+              when dts in [NaiveDateTime, DateTime] ->
                 Timex.to_unix(datetime) - now
 
               {unixtime, _host, _chan, _nick, _msg} ->
@@ -719,7 +720,8 @@ defmodule Overdiscord.IRC.Bridge do
                 false
             end)
             |> Enum.sort_by(fn
-              {%dts{} = datetime, _host, _chan, _nick, _msg} when dts in [NaiveDateTime, DateTime] ->
+              {%dts{} = datetime, _host, _chan, _nick, _msg}
+              when dts in [NaiveDateTime, DateTime] ->
                 Timex.to_unix(datetime)
 
               {unixtime, _host, _chan, _nick, _msg} ->
@@ -1118,7 +1120,8 @@ defmodule Overdiscord.IRC.Bridge do
           _ -> false
         end
         |> if do
-          case String.split(args, " ", parts: 2) |> Enum.map(&String.trim/1)
+          case String.split(args, " ", parts: 2)
+               |> Enum.map(&String.trim/1)
                |> Enum.filter(&(&1 != "")) do
             [] ->
               send_msg_both(
