@@ -1,5 +1,5 @@
 defmodule Overdiscord.IRC.Bridge do
-  # TODO:  Janitor for db: time-series
+  # TODO:  `?update` Download Link, Screenshot, Changelog order all at once
 
   defmodule State do
     defstruct host: "irc.esper.net",
@@ -159,34 +159,35 @@ defmodule Overdiscord.IRC.Bridge do
                 )
 
               _ ->
-                ExIrc.Client.msg(
-                  state.client,
-                  :privmsg,
-                  "#gt-dev",
-                  "> #{nick} is now playing/streaming: #{game}"
-                )
+                case Overdiscord.SiteParser.get_summary(
+                       "https://gaming.youtube.com/c/aBear989/live"
+                     ) do
+                  nil ->
+                    IO.inspect("No response from youtube!", :YoutubeError)
 
-                if nick == "Bear989" do
-                  ExIrc.Client.msg(
-                    state.client,
-                    :privmsg,
-                    "#gt-dev",
-                    "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
-                  )
+                  summary ->
+                    case db_get(state, :kb, {:presence_yt, nick}) do
+                      ^summary ->
+                        :no_change
 
-                  case IO.inspect(
-                         Overdiscord.SiteParser.get_summary(
-                           "https://gaming.youtube.com/c/aBear989/live"
-                         ),
-                         label: :StreamSummary
-                       ) do
-                    nil ->
-                      "No information found at URL"
+                      _old_summary ->
+                        ExIrc.Client.msg(
+                          state.client,
+                          :privmsg,
+                          "#gt-dev",
+                          "> #{nick} is now playing/streaming: #{game}"
+                        )
 
-                    summary ->
-                      [summary | _] = String.split(summary, " - YouTube Gaming :")
-                      ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
-                  end
+                        ExIrc.Client.msg(
+                          state.client,
+                          :privmsg,
+                          "#gt-dev",
+                          "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
+                        )
+
+                        [summary | _] = String.split(summary, " - YouTube Gaming :")
+                        ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
+                    end
                 end
             end
         end
@@ -1112,7 +1113,7 @@ defmodule Overdiscord.IRC.Bridge do
       "setphrase" => fn cmd, args, auth, chan, state ->
         case auth do
           %{host: "id-16796." <> _, user: "uid16796"} -> true
-          %{host: "ltea-047-064-006-094.pools.arcor-ip.net"} -> true
+          %{host: "ltea-" <> _, user: "~Gregorius"} -> true
           _ -> false
         end
         |> if do

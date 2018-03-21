@@ -42,6 +42,7 @@ defmodule Overdiscord.SiteParser do
     case status_code do
       code when code >= 400 and code <= 499 ->
         "Page does not exist"
+
       code when code >= 300 and code <= 399 ->
         IO.inspect(headers, label: :Headers)
 
