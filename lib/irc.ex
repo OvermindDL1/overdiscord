@@ -168,23 +168,25 @@ defmodule Overdiscord.IRC.Bridge do
                   _old_summary ->
                     db_put(state, :kv, {:presence_yt, nick}, summary)
 
-                    ExIrc.Client.msg(
-                      state.client,
-                      :privmsg,
-                      "#gt-dev",
-                      "> #{nick} is now playing/streaming: #{game}"
-                    )
+                    if game != nil do
+                      ExIrc.Client.msg(
+                        state.client,
+                        :privmsg,
+                        "#gt-dev",
+                        "> #{nick} is now playing/streaming: #{game}"
+                      )
 
-                    ExIrc.Client.msg(
-                      state.client,
-                      :privmsg,
-                      "#gt-dev",
-                      "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
-                    )
+                      ExIrc.Client.msg(
+                        state.client,
+                        :privmsg,
+                        "#gt-dev",
+                        "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
+                      )
 
-                    [summary | _] = String.split(summary, " - YouTube Gaming :")
-                    IO.inspect(summary, label: "BearUpdate")
-                    ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", "> " <> summary)
+                      [summary | _] = String.split(summary, " - YouTube Gaming :")
+                      IO.inspect(summary, label: "BearUpdate")
+                      send_msg_both(summary, "#gt-dev", state, discord: false)
+                    end
                 end
             end
         end
@@ -1241,7 +1243,7 @@ defmodule Overdiscord.IRC.Bridge do
 
     case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :UrlSummary) do
       nil -> "No information found at URL"
-      summary -> ExIrc.Client.msg(client, :privmsg, chan, "> " <> summary)
+      summary -> send_msg_both(summary, chan, client, discord: false)
     end
   end
 
@@ -1291,7 +1293,7 @@ defmodule Overdiscord.IRC.Bridge do
                    ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
                 nil
               else
-                ExIrc.Client.msg(client, :privmsg, "#gt-dev", "> " <> summary)
+                send_msg_both(summary, chan, client, discord: false)
               end
           end
         end

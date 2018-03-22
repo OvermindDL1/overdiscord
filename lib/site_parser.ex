@@ -55,21 +55,27 @@ defmodule Overdiscord.SiteParser do
         end
 
       200 ->
-        case :proplists.get_value("Content-Type", headers) do
-          :undefined ->
-            nil
+        case url |> String.downcase() |> String.replace(~r|^https?://|, "") do
+          "bash.org/" <> _ ->
+            get_bash_summary(Meeseeks.parse(body), opts)
 
-          "image" <> _ ->
-            nil
+          _unknown ->
+            case :proplists.get_value("Content-Type", headers) do
+              :undefined ->
+                nil
 
-          _ ->
-            doc = Meeseeks.parse(body)
+              "image" <> _ ->
+                nil
 
-            with nil <- get_summary_opengraph(doc, opts),
-                 nil <- get_summary_title_and_description(doc, opts),
-                 # nil <- get_summary_opengraph(doc, opts),
-                 nil <- get_summary_first_paragraph(doc, opts),
-                 do: nil
+              _ ->
+                doc = Meeseeks.parse(body)
+
+                with nil <- get_summary_opengraph(doc, opts),
+                     nil <- get_summary_title_and_description(doc, opts),
+                     # nil <- get_summary_opengraph(doc, opts),
+                     nil <- get_summary_first_paragraph(doc, opts),
+                     do: nil
+            end
         end
 
       _ ->
@@ -84,6 +90,25 @@ defmodule Overdiscord.SiteParser do
     e ->
       IO.inspect({:CRASH, :get_summary, e})
       nil
+  end
+
+  defp get_bash_summary(doc, _opts) do
+    with(qt when qt != nil <- Meeseeks.one(doc, css(".qt"))) do
+      qt
+      |> Meeseeks.tree()
+      |> case do
+        {"p", [{"class", "qt"}], children} ->
+          children
+          |> Enum.map(fn
+            str when is_binary(str) -> str
+            _ -> ""
+          end)
+          |> :erlang.iolist_to_binary()
+
+        _ ->
+          nil
+      end
+    end
   end
 
   defp get_summary_opengraph(doc, _opts) do
