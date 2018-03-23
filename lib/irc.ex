@@ -154,7 +154,7 @@ defmodule Overdiscord.IRC.Bridge do
                 IO.inspect("No response from youtube!", label: :YoutubeError)
 
               summary ->
-                case db_get(state, :kb, {:presence_yt, nick}) do
+                case db_get(state, :kv, {:presence_yt, nick}) do
                   ^summary ->
                     if game == nil do
                       ExIrc.Client.msg(
