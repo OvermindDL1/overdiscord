@@ -83,12 +83,13 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_cast({:send_msg, nick, msg}, state) do
+    nick_color = get_name_color(state, nick)
     db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
     # |> Enum.flat_map(&split_at_irc_max_length/1)
     msg
     |> String.split("\n")
     |> Enum.each(fn line ->
-      Enum.map(split_at_irc_max_length("#{nick}: #{line}"), fn irc_msg ->
+      Enum.map(split_at_irc_max_length("#{nick_color}#{nick}\x0F: #{line}"), fn irc_msg ->
         # ExIrc.Client.nick(state.client, "#{nick}{Discord}")
         ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", irc_msg)
         # ExIrc.Client.nick(state.client, state.nick)
@@ -757,9 +758,12 @@ defmodule Overdiscord.IRC.Bridge do
                       end
                   end
 
-                "Next pending delay message from #{nick} set to appear at #{
-                  Timex.format!(time, "{ISO:Extended}")
-                }, (#{Timex.to_unix(time) - now}s away): #{msg}"
+                formatted = Timex.format!(time, "{ISO:Extended}")
+                trange = Timex.to_unix(time) - now
+
+                "Next pending delay message from #{nick} set to appear at #{formatted}, (#{trange}s away): #{
+                  msg
+                }"
 
               _ ->
                 "No pending messages"
@@ -974,6 +978,37 @@ defmodule Overdiscord.IRC.Bridge do
             end
         end
       end,
+      "set-name-format" => fn cmd, args, auth, chan, state ->
+        if not is_admin(auth) do
+          "You do not have access to this command"
+        else
+          case String.split(String.trim(args), " ", parts: 2, trim: true) do
+            [] ->
+              [
+                "Usage: #{cmd} <name> [formatting-code]",
+                "Valid format codes (hyphen-separated): #{
+                  Enum.join(tl(get_valid_format_codes()), "|")
+                }",
+                "Example: #{cmd} SomeonesName fat-blue",
+                "Leave out the formatting code to clear format settings for the given name"
+              ]
+
+            [name] ->
+              db_delete(state, :kv, {:name_formatting, name})
+              "Cleared formatting on #{name}"
+
+            [name, formatting] ->
+              case get_format_code(formatting) do
+                "" ->
+                  "Invalid formatting code"
+
+                formatting ->
+                  db_put(state, :kv, {:name_formatting, name}, formatting)
+                  "Set formatting for #{formatting}#{name}#{get_format_code("reset")}"
+              end
+          end
+        end
+      end,
       "screenshot" => fn _cmd, _args, _auth, _chan, _state ->
         %{body: url, status_code: url_code} =
           HTTPoison.get!(
@@ -999,9 +1034,13 @@ defmodule Overdiscord.IRC.Bridge do
           names =
             Alchemy.Cache.search(:members, &(&1.user.bot == false))
             |> Enum.map(& &1.user.username)
+            |> Enum.sort()
+            |> Enum.map(
+              &to_string([Enum.intersperse(String.graphemes(&1), <<204, 178>>), <<204, 178>>])
+            )
             |> Enum.join("` `")
 
-          ExIrc.Client.msg(state.client, :privmsg, chan, "Discord Names: `#{names}`")
+          send_msg_both("Discord Names: `#{names}`", chan, state.client, discord: false)
           nil
         rescue
           r ->
@@ -1620,6 +1659,118 @@ defmodule Overdiscord.IRC.Bridge do
 
     nil
   end
+
+  defp is_admin(auth)
+  defp is_admin(%{host: "id-16796." <> _, user: "uid16796"}), do: true
+  defp is_admin(%{host: "ltea-" <> _, user: "~Gregorius"}), do: true
+  defp is_admin(_), do: false
+
+  defp get_name_color(state, name) do
+    case db_get(state, :kv, {:name_formatting, name}) do
+      nil -> "\x02"
+      code -> code
+    end
+  end
+
+  defp get_format_code(foreground, background) do
+    foreground = get_format_code("-" <> foreground)
+
+    background =
+      case get_color_format_code(background) do
+        "" -> ""
+        code -> ",#{code}"
+      end
+
+    "#{foreground}#{background}"
+  end
+
+  def get_format_code(format)
+  def get_format_code(""), do: ""
+  def get_format_code("reset"), do: "\x0F"
+  def get_format_code("bold"), do: "\x02"
+  def get_format_code("fat"), do: "\x02"
+  def get_format_code("italic"), do: "\x1D"
+  def get_format_code("underlined"), do: "\x1F"
+  def get_format_code("swap"), do: "\x16"
+
+  def get_format_code(color) do
+    case String.split(color, "-", parts: 2, trim: true) do
+      [] ->
+        ""
+
+      [color] ->
+        case String.split(color, ":", parts: 2, trim: true) do
+          [] ->
+            ""
+
+          [_fg] ->
+            case get_format_code_color(color) do
+              nil -> ""
+              color -> "\x03#{color}"
+            end
+
+          [fg, bg] ->
+            case {get_format_code_color(fg), get_format_code_color(bg)} do
+              {nil, nil} -> ""
+              {nil, bg} -> "\x0300,#{bg}"
+              {fg, nil} -> "\x03#{fg}"
+              {fg, bg} -> "\x03#{fg},#{bg}"
+            end
+        end
+
+      [format, rest] ->
+        "#{get_format_code(format)}#{get_format_code(rest)}"
+    end
+  end
+
+  def get_format_code_color(color)
+  def get_format_code_color("fgdefault"), do: "00"
+  def get_format_code_color("bgdefault"), do: "01"
+  def get_format_code_color("white"), do: "00"
+  def get_format_code_color("black"), do: "01"
+  def get_format_code_color("blue"), do: "02"
+  def get_format_code_color("green"), do: "03"
+  def get_format_code_color("red"), do: "04"
+  def get_format_code_color("brown"), do: "05"
+  def get_format_code_color("purple"), do: "06"
+  def get_format_code_color("orange"), do: "07"
+  def get_format_code_color("yellow"), do: "08"
+  def get_format_code_color("lime"), do: "09"
+  def get_format_code_color("teal"), do: "10"
+  def get_format_code_color("cyan"), do: "11"
+  def get_format_code_color("royal"), do: "12"
+  def get_format_code_color("pink"), do: "13"
+  def get_format_code_color("grey"), do: "14"
+  def get_format_code_color("silver"), do: "15"
+  def get_format_code_color(_color), do: nil
+
+  def get_valid_format_codes,
+    do: [
+      "reset",
+      "bold",
+      "fat",
+      "italic",
+      "underlined",
+      "swap",
+      "fgdefault",
+      "bgdefault",
+      "white",
+      "black",
+      "blue",
+      "green",
+      "red",
+      "brown",
+      "purple",
+      "orange",
+      "yellow",
+      "lime",
+      "teal",
+      "cyan",
+      "royal",
+      "pink",
+      "grey",
+      "silver"
+    ]
 
   defp farewells,
     do: [
