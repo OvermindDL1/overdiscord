@@ -1,6 +1,17 @@
 defmodule Overdiscord.Commands do
   use Alchemy.Events
 
+  def send_event(auth, event_data, to)
+
+  def send_event(auth, %{msg: msg}, to) do
+    Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")
+  end
+
+  def send_event(auth, event_data, to) do
+    IO.inspect({auth, event_data, to}, label: "Unhandled Discord send_event")
+    nil
+  end
+
   def on_msg(%{author: %{id: "336892378759692289"}}) do
     # Ignore bot message
     :ok
@@ -13,6 +24,10 @@ defmodule Overdiscord.Commands do
           content: content
         } = msg
       ) do
+    # TODO:  Definitely need to make a protocol to parse these event_data's out!
+    # TODO:  Remove this `!` stuff to manage all messages so it is fully configurable
+    if not String.starts_with?(content, "!"), do: Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
+
     case content do
       "!list" ->
         Overdiscord.IRC.Bridge.list_users()
@@ -24,7 +39,7 @@ defmodule Overdiscord.Commands do
         # IO.inspect("Msg dump: #{inspect msg}")
         IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
         irc_content = get_msg_content_processed(msg)
-        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
+#        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
 
         Enum.map(msg.attachments, fn %{
                                        filename: filename,

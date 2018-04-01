@@ -8,6 +8,7 @@ defmodule Overdiscord.Mixfile do
       elixir: "~> 1.4",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
+      compilers: Mix.compilers() ++ [:protocol_ex],
       deps: deps()
     ]
   end
@@ -41,7 +42,8 @@ defmodule Overdiscord.Mixfile do
       {:gen_stage, "~> 0.13", override: true},
       {:quantum, "~> 2.2"},
       {:timex, "~> 3.1"},
-      {:luerl, "~> 0.3"}
+      {:luerl, "~> 0.3"},
+      {:protocol_ex, "~> 0.3.12"}
     ]
   end
 end

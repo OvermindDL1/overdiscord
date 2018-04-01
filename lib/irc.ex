@@ -16,6 +16,17 @@ defmodule Overdiscord.IRC.Bridge do
               }
   end
 
+  def send_event(auth, event_data, to)
+
+  def send_event(auth, %{msg: msg}, to) do
+    send_msg(auth.nickname, msg)
+  end
+
+  def send_event(auth, event_data, to) do
+    IO.inspect({auth, event_data}, label: "Unhandled IRC send_event")
+    nil
+  end
+
   def send_msg("", _), do: nil
   def send_msg(_, ""), do: nil
 
@@ -149,7 +160,7 @@ defmodule Overdiscord.IRC.Bridge do
           ^game ->
             :ok
 
-          _oldpresence ->
+          oldpresence ->
             case Overdiscord.SiteParser.get_summary("https://gaming.youtube.com/c/aBear989/live") do
               nil ->
                 IO.inspect("No response from youtube!", label: :YoutubeError)
@@ -166,15 +177,13 @@ defmodule Overdiscord.IRC.Bridge do
                       )
                     end
 
-                  _old_summary ->
-                    db_put(state, :kv, {:presence_yt, nick}, summary)
-
+                  old_summary ->
                     if game != nil do
                       ExIrc.Client.msg(
                         state.client,
                         :privmsg,
                         "#gt-dev",
-                        "> #{nick} is now playing/streaming: #{game}"
+                        "> #{nick} is now playing/streaming: #{game} (was last: #{oldpresence})"
                       )
 
                       ExIrc.Client.msg(
@@ -187,8 +196,14 @@ defmodule Overdiscord.IRC.Bridge do
                       [summary | _] = String.split(summary, " - YouTube Gaming :")
                       IO.inspect(summary, label: "BearUpdate")
                       send_msg_both(summary, "#gt-dev", state, discord: false)
+
+                      [old_summary | _] = String.split(old_summary, " - YouTube Gaming :")
+                      IO.inspect(old_summary, label: "BearOldUpdate")
+                      send_msg_both("Old: " <> summary, "#gt-dev", state, discord: false)
                     end
                 end
+
+                db_put(state, :kv, {:presence_yt, nick}, summary)
             end
         end
 
@@ -414,6 +429,15 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info(:disconnected, state) do
     ExIrc.Client.connect!(state.client, state.host, state.port)
+    {:noreply, state}
+  end
+
+  def handle_info({:DOWN, ref, :process, pid, :normal}, state)
+      when is_reference(ref) and is_pid(pid) do
+    {:noreply, state}
+  end
+
+  def handle_info({ref, :error}, state) when is_reference(ref) do
     {:noreply, state}
   end
 
@@ -1284,6 +1308,12 @@ defmodule Overdiscord.IRC.Bridge do
       nil -> "No information found at URL"
       summary -> send_msg_both(summary, chan, client, discord: false)
     end
+  end
+
+  def message_extra(:msg, "?TEST " <> cmd, auth, chan, state) do
+    IO.inspect({cmd, auth, chan, state}, label: :TEST_MESSAGE)
+    Overdiscord.Cmd.task_handle_cmd(:msg, {chan, auth, state}, cmd)
+    nil
   end
 
   def message_extra(:msg, "?" <> cmd, auth, chan, state) do
