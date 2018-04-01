@@ -26,7 +26,8 @@ defmodule Overdiscord.Commands do
       ) do
     # TODO:  Definitely need to make a protocol to parse these event_data's out!
     # TODO:  Remove this `!` stuff to manage all messages so it is fully configurable
-    if not String.starts_with?(content, "!"), do: Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
+    if not String.starts_with?(content, "!"),
+      do: Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
 
     case content do
       "!list" ->
@@ -39,7 +40,7 @@ defmodule Overdiscord.Commands do
         # IO.inspect("Msg dump: #{inspect msg}")
         IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
         irc_content = get_msg_content_processed(msg)
-#        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
+        #        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
 
         Enum.map(msg.attachments, fn %{
                                        filename: filename,
