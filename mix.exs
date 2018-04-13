@@ -11,8 +11,8 @@ defmodule Overdiscord.Mixfile do
       compilers: Mix.compilers() ++ [:protocol_ex],
       deps: deps(),
       dialyzer: [
-        plt_add_deps: :transitive,
-      ],
+        plt_add_deps: :transitive
+      ]
     ]
   end
 
@@ -37,7 +37,7 @@ defmodule Overdiscord.Mixfile do
       {:httpoison, "~> 0.12.0", override: true},
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
-      #{:meeseeks, "~> 0.7.7"},
+      # {:meeseeks, "~> 0.7.7"},
       {:meeseeks, github: "mischov/meeseeks"},
       {:opengraph, "~> 0.1.0"},
       {:cachex, "~> 2.1"},

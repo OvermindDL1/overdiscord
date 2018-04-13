@@ -58,14 +58,19 @@ defmodule Overdiscord.Commands do
     IO.inspect(msg, label: :UnhandledMsg)
   end
 
-
-  def on_msg_edit(%{author: nil, channel_id: "320192373437104130", embeds: [_|_] = embeds}) do
+  def on_msg_edit(%{author: nil, channel_id: "320192373437104130", embeds: [_ | _] = embeds}) do
     IO.inspect(embeds, label: :BotEdit)
+
     Enum.map(embeds, fn %{title: title, description: description} ->
-      IO.inspect("Discord embed bot back to IRC: #{title} - #{description}", label: :DiscordBotEdit)
+      IO.inspect(
+        "Discord embed bot back to IRC: #{title} - #{description}",
+        label: :DiscordBotEdit
+      )
+
       # Overdiscord.IRC.Bridge.send_msg(nil, "#{title} - #{description}")
     end)
   end
+
   def on_msg_edit(%{author: %{id: "336892378759692289"}} = msg) do
     # We were edited, likely by discord itself, pass that information back?
     IO.inspect(msg, label: :BotEdited)

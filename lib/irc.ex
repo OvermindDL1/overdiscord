@@ -175,6 +175,7 @@ defmodule Overdiscord.IRC.Bridge do
                         "#gt-dev",
                         "> #{nick} is no longer playing or streaming"
                       )
+
                       db_put(state, :kv, {:presence_yt_clear, nick}, true)
                     end
 
@@ -1351,11 +1352,11 @@ defmodule Overdiscord.IRC.Bridge do
 
   def message_extra(_type, msg, _auth, chan, %{client: client} = _state) do
     # URL summary
-    #Regex.scan(~r"https?://[^)\]\s]+"i, msg, captures: :first)
+    # Regex.scan(~r"https?://[^)\]\s]+"i, msg, captures: :first)
     Regex.scan(~R"\((https?://\S+)\)|(https?://\S+)"i, msg, capture: :all_but_first)
-    |> IO.inspect(label: :ExtraScan)
+    # |> IO.inspect(label: :ExtraScan)
     |> Enum.map(&Enum.join/1)
-    |> IO.inspect(label: :ExtraScan1)
+    # |> IO.inspect(label: :ExtraScan1)
     |> Enum.map(fn
       url ->
         if url =~ ~r/xkcd.com/i do
@@ -1678,9 +1679,9 @@ defmodule Overdiscord.IRC.Bridge do
                 # [err, _rest] -> "#{inspect({op, expr})} Error: #{err}"
             end
 
-          #err ->
-          #  IO.inspect({op, expr, err}, label: :MathSolverErr)
-          #  "#{inspect({op, expr})} Error loading Math solver, report this to OvermindDL1"
+            # err ->
+            #  IO.inspect({op, expr, err}, label: :MathSolverErr)
+            #  "#{inspect({op, expr})} Error loading Math solver, report this to OvermindDL1"
         end
         |> IO.inspect(label: :MDLTResult)
         |> send_msg_both(chan, state.client)
