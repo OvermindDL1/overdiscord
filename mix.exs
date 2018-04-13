@@ -9,7 +9,10 @@ defmodule Overdiscord.Mixfile do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       compilers: Mix.compilers() ++ [:protocol_ex],
-      deps: deps()
+      deps: deps(),
+      dialyzer: [
+        plt_add_deps: :transitive,
+      ],
     ]
   end
 
@@ -34,10 +37,12 @@ defmodule Overdiscord.Mixfile do
       {:httpoison, "~> 0.12.0", override: true},
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
-      {:meeseeks, "~> 0.7.7"},
+      #{:meeseeks, "~> 0.7.7"},
+      {:meeseeks, github: "mischov/meeseeks"},
       {:opengraph, "~> 0.1.0"},
       {:cachex, "~> 2.1"},
       {:exsync, "~> 0.2", only: :dev},
+      {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
       {:exleveldb, "~> 0.12"},
       {:gen_stage, "~> 0.13", override: true},
       {:quantum, "~> 2.2"},

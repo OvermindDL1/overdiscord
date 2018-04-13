@@ -17,6 +17,7 @@ defmodule Overdiscord do
     # {:ok, client} = ExIrc.start_link!()
 
     children = [
+      worker(Overdiscord.Storage, []),
       worker(Overdiscord.Cron, []),
       worker(Overdiscord.IRC.Bridge, []),
       worker(Alchemy.Client, [System.get_env("OVERDISCORD_TOKEN"), []]),

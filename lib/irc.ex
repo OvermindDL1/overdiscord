@@ -18,11 +18,11 @@ defmodule Overdiscord.IRC.Bridge do
 
   def send_event(auth, event_data, to)
 
-  def send_event(auth, %{msg: msg}, to) do
+  def send_event(auth, %{msg: msg}, _to) do
     send_msg(auth.nickname, msg)
   end
 
-  def send_event(auth, event_data, to) do
+  def send_event(auth, event_data, _to) do
     IO.inspect({auth, event_data}, label: "Unhandled IRC send_event")
     nil
   end
@@ -168,13 +168,14 @@ defmodule Overdiscord.IRC.Bridge do
               summary ->
                 case db_get(state, :kv, {:presence_yt, nick}) do
                   ^summary ->
-                    if game == nil do
+                    if game == nil and not db_get(state, :kv, {:presence_yt_clear, nick}) do
                       ExIrc.Client.msg(
                         state.client,
                         :privmsg,
                         "#gt-dev",
                         "> #{nick} is no longer playing or streaming"
                       )
+                      db_put(state, :kv, {:presence_yt_clear, nick}, true)
                     end
 
                   old_summary ->
@@ -193,13 +194,15 @@ defmodule Overdiscord.IRC.Bridge do
                         "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
                       )
 
-                      [summary | _] = String.split(summary, " - YouTube Gaming :")
-                      IO.inspect(summary, label: "BearUpdate")
-                      send_msg_both(summary, "#gt-dev", state, discord: false)
+                      [simple_summary | _] = String.split(summary, " - YouTube Gaming :")
+                      IO.inspect(simple_summary, label: "BearUpdate")
+                      send_msg_both(simple_summary, "#gt-dev", state, discord: false)
 
                       [old_summary | _] = String.split(old_summary, " - YouTube Gaming :")
                       IO.inspect(old_summary, label: "BearOldUpdate")
-                      send_msg_both("Old: " <> summary, "#gt-dev", state, discord: false)
+                      send_msg_both("Old: " <> old_summary, "#gt-dev", state, discord: false)
+
+                      db_put(state, :kv, {:presence_yt_clear, nick}, false)
                     end
                 end
 
@@ -299,7 +302,7 @@ defmodule Overdiscord.IRC.Bridge do
     IO.inspect("connecting bridge...", label: "State")
     # IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
     # TODO:  Blegh!  Check if ExIRC has a better way here, because what on earth...
-    Process.sleep(3000)
+    Process.sleep(5000)
     IO.inspect("Connect should be complete", label: "State")
     ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     {:noreply, state}
@@ -458,7 +461,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   defp convert_message_to_discord(msg) do
     msg =
-      Regex.replace(~R/([^<]|^)\B@([a-zA-Z0-9]+)\b/, msg, fn full, pre, username ->
+      Regex.replace(~R/([^<]|^)\B@!?([a-zA-Z0-9]+)\b/, msg, fn full, pre, username ->
         down_username = String.downcase(username)
 
         try do
@@ -495,6 +498,7 @@ defmodule Overdiscord.IRC.Bridge do
     |> String.replace(~R/\bqwertygiy\b|\bqwerty\b|\bqwertz\b/i, "<@80832726017511424>")
     |> String.replace(~R/\bandyafw\b|\bandy\b/i, "<@179586256752214016>")
     |> String.replace(~R/\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
+    |> to_string()
   end
 
   def alchemy_channel(), do: "320192373437104130"
@@ -565,7 +569,7 @@ defmodule Overdiscord.IRC.Bridge do
                 Enum.map(msgs, &send_msg_both(&1, chan, state.client))
                 nil
 
-              %{changesets: []} ->
+              {:ok, %{changesets: []}} ->
                 send_msg_both(
                   "Changelog has no changesets in it, check:  https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/changelog.txt",
                   chan,
@@ -1002,7 +1006,7 @@ defmodule Overdiscord.IRC.Bridge do
             end
         end
       end,
-      "set-name-format" => fn cmd, args, auth, chan, state ->
+      "set-name-format" => fn cmd, args, auth, _chan, state ->
         if not is_admin(auth) do
           "You do not have access to this command"
         else
@@ -1347,9 +1351,13 @@ defmodule Overdiscord.IRC.Bridge do
 
   def message_extra(_type, msg, _auth, chan, %{client: client} = _state) do
     # URL summary
-    Regex.scan(~r"https?://[^)\]\s]+"i, msg, captures: :first)
+    #Regex.scan(~r"https?://[^)\]\s]+"i, msg, captures: :first)
+    Regex.scan(~R"\((https?://\S+)\)|(https?://\S+)"i, msg, capture: :all_but_first)
+    |> IO.inspect(label: :ExtraScan)
+    |> Enum.map(&Enum.join/1)
+    |> IO.inspect(label: :ExtraScan1)
     |> Enum.map(fn
-      [url] ->
+      url ->
         if url =~ ~r/xkcd.com/i do
           []
         else
@@ -1670,9 +1678,9 @@ defmodule Overdiscord.IRC.Bridge do
                 # [err, _rest] -> "#{inspect({op, expr})} Error: #{err}"
             end
 
-          err ->
-            IO.inspect({op, expr, err}, label: :MathSolverErr)
-            "#{inspect({op, expr})} Error loading Math solver, report this to OvermindDL1"
+          #err ->
+          #  IO.inspect({op, expr, err}, label: :MathSolverErr)
+          #  "#{inspect({op, expr})} Error loading Math solver, report this to OvermindDL1"
         end
         |> IO.inspect(label: :MDLTResult)
         |> send_msg_both(chan, state.client)

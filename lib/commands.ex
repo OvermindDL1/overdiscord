@@ -58,8 +58,17 @@ defmodule Overdiscord.Commands do
     IO.inspect(msg, label: :UnhandledMsg)
   end
 
-  def on_msg_edit(%{author: %{id: "336892378759692289"}}) do
-    # Ignore bot message
+
+  def on_msg_edit(%{author: nil, channel_id: "320192373437104130", embeds: [_|_] = embeds}) do
+    IO.inspect(embeds, label: :BotEdit)
+    Enum.map(embeds, fn %{title: title, description: description} ->
+      IO.inspect("Discord embed bot back to IRC: #{title} - #{description}", label: :DiscordBotEdit)
+      # Overdiscord.IRC.Bridge.send_msg(nil, "#{title} - #{description}")
+    end)
+  end
+  def on_msg_edit(%{author: %{id: "336892378759692289"}} = msg) do
+    # We were edited, likely by discord itself, pass that information back?
+    IO.inspect(msg, label: :BotEdited)
   end
 
   def on_msg_edit(
@@ -150,7 +159,7 @@ defmodule Overdiscord.Commands do
         content
 
       {:ok, guild_id} ->
-        Regex.replace(~r/<@([0-9!]+)>/, content, fn full, user_id ->
+        Regex.replace(~r/<@!?([0-9]+)>/, content, fn full, user_id ->
           case Alchemy.Cache.member(guild_id, user_id) do
             {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
               "@#{username}"
