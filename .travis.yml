@@ -15,8 +15,7 @@ cache:
     - deps
     - _build
     - $HOME/.cargo
-    - $HOME/.hex/packages
-    - $HOME/.hex/cache.ets
+    - $HOME/.hex
 env:
   global:
     - ELIXIR_ASSERT_TIMEOUT=2000
