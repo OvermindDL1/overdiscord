@@ -496,7 +496,7 @@ defmodule Overdiscord.IRC.Bridge do
 
     msg
     |> String.replace(~R/\bbear989\b|\bbear989sr\b|\bbear\b/i, "<@225728625238999050>")
-    |> String.replace(~R/\bqwertygiy\b|\bqwerty\b|\bqwertz\b/i, "<@80832726017511424>")
+    |> String.replace(~R/\bqwertygiy\b|\bqwerty\b|\bqwertys\b|\bqwertz\b|\bqwertzs\b/i, "<@80832726017511424>")
     |> String.replace(~R/\bandyafw\b|\bandy\b/i, "<@179586256752214016>")
     |> String.replace(~R/\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
     |> to_string()
