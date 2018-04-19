@@ -88,14 +88,15 @@ defmodule Overdiscord.Commands.GT6 do
           |> Enum.take(4)
           |> Enum.map(&elem(&1, 0))
           |> Enum.intersperse(" | ")
-          #|> Enum.join()
+          # |> Enum.join()
           |> case do
             "" ->
               changesets
               |> Enum.take(4)
               |> Enum.map(& &1.version)
               |> Enum.intersperse(" | ")
-              #|> Enum.join()
+
+            # |> Enum.join()
 
             possibles ->
               possibles
