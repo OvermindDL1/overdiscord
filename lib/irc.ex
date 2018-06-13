@@ -1018,7 +1018,11 @@ defmodule Overdiscord.IRC.Bridge do
         if not is_admin(auth) do
           "You do not have access to this command"
         else
-          spawn(fn -> Process.sleep(2000); :init.stop() end)
+          spawn(fn ->
+            Process.sleep(2000)
+            :init.stop()
+          end)
+
           "Rebooting in 2 seconds"
         end
       end,
@@ -1068,7 +1072,7 @@ defmodule Overdiscord.IRC.Bridge do
               case description do
                 "." <> desc -> desc
                 "\uFEFF." <> desc -> desc
-                desc -> "Blargh"<>desc
+                desc -> "Blargh" <> desc
               end
 
             case description_code do
@@ -1379,26 +1383,25 @@ defmodule Overdiscord.IRC.Bridge do
     # |> IO.inspect(label: :ExtraScan)
     |> Enum.map(&Enum.join/1)
     # |> IO.inspect(label: :ExtraScan1)
-    |> Enum.map(fn
-      url ->
-        if url =~ ~r/xkcd.com/i do
-          []
-        else
-          case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :Summary) do
-            nil ->
+    |> Enum.map(fn url ->
+      if url =~ ~r/xkcd.com/i do
+        []
+      else
+        case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :Summary) do
+          nil ->
+            nil
+
+          summary ->
+            if summary =~
+                 ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
               nil
-
-            summary ->
-              if summary =~
-                   ~r/Minecraft Mod by GregoriusT - overhauling your Minecraft experience completely/ do
-                nil
-              else
-                send_msg_both(summary, chan, client, discord: false)
-              end
-          end
+            else
+              send_msg_both(summary, chan, client, discord: false)
+            end
         end
+      end
 
-      #_ ->
+      # _ ->
       #  []
     end)
 
