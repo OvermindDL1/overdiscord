@@ -93,6 +93,10 @@ defmodule Overdiscord.IRC.Bridge do
     {:reply, state.db, state}
   end
 
+  def handle_call(:get_client, _from, state) do
+    {:reply, state.client, state}
+  end
+
   def handle_cast({:send_msg, nick, msg}, state) do
     nick_color = get_name_color(state, nick)
     db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
@@ -1010,6 +1014,14 @@ defmodule Overdiscord.IRC.Bridge do
             end
         end
       end,
+      "reboot" => fn _cmd, _args, auth, _chan, _state ->
+        if not is_admin(auth) do
+          "You do not have access to this command"
+        else
+          spawn(fn -> Process.sleep(2000); :init.stop() end)
+          "Rebooting in 2 seconds"
+        end
+      end,
       "set-name-format" => fn cmd, args, auth, _chan, state ->
         if not is_admin(auth) do
           "You do not have access to this command"
@@ -1051,6 +1063,13 @@ defmodule Overdiscord.IRC.Bridge do
           200 ->
             %{body: description, status_code: description_code} =
               HTTPoison.get!("https://gregtech.overminddl1.com/imagecaption.adoc")
+
+            description =
+              case description do
+                "." <> desc -> desc
+                "\uFEFF." <> desc -> desc
+                desc -> "Blargh"<>desc
+              end
 
             case description_code do
               200 -> ["https://gregtech.overminddl1.com#{url}", description]
@@ -1379,8 +1398,8 @@ defmodule Overdiscord.IRC.Bridge do
           end
         end
 
-      _ ->
-        []
+      #_ ->
+      #  []
     end)
 
     # Reddit subreddit links

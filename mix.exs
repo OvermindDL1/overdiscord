@@ -46,7 +46,7 @@ defmodule Overdiscord.Mixfile do
       {:exleveldb, "~> 0.12"},
       {:gen_stage, "~> 0.13", override: true},
       {:quantum, "~> 2.2"},
-      {:timex, "~> 3.1"},
+      {:timex, "~> 3.2"},
       {:luerl, "~> 0.3"},
       {:protocol_ex, "~> 0.3.12"}
     ]
