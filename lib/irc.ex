@@ -101,10 +101,12 @@ defmodule Overdiscord.IRC.Bridge do
     nick_color = get_name_color(state, nick)
     db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
     # |> Enum.flat_map(&split_at_irc_max_length/1)
+    escaped_nick = [Enum.intersperse(String.graphemes(nick), <<204, 178>>), <<204, 178>>]
+
     msg
     |> String.split("\n")
     |> Enum.each(fn line ->
-      Enum.map(split_at_irc_max_length("#{nick_color}#{nick}\x0F: #{line}"), fn irc_msg ->
+      Enum.map(split_at_irc_max_length("#{nick_color}#{escaped_nick}\x0F: #{line}"), fn irc_msg ->
         # ExIrc.Client.nick(state.client, "#{nick}{Discord}")
         ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", irc_msg)
         # ExIrc.Client.nick(state.client, state.nick)
