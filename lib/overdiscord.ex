@@ -26,7 +26,7 @@ defmodule Overdiscord do
       worker(Cachex, [
         :summary_cache,
         [
-          fallback: &Overdiscord.SiteParser.get_summary_cache_init/1,
+          # fallback: fallback(default: &Overdiscord.SiteParser.get_summary_cache_init/1),
           # default_ttl: :timer.hours(24),
           disable_ode: true,
           # ttl_interval: :timer.hours(1),

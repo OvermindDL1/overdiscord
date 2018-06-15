@@ -309,9 +309,15 @@ defmodule Overdiscord.IRC.Bridge do
     IO.inspect("connecting bridge...", label: "State")
     # IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
     # TODO:  Blegh!  Check if ExIRC has a better way here, because what on earth...
-    Process.sleep(5000)
+    # Process.sleep(5000)
     IO.inspect("Connect should be complete", label: "State")
-    ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
+    # ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
+    spawn(fn ->
+      Process.sleep(2000)
+      IO.puts("sending logon information via IRC...")
+      ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
+    end)
+
     {:noreply, state}
   end
 

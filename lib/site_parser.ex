@@ -6,11 +6,14 @@ defmodule Overdiscord.SiteParser do
   end
 
   def get_summary_cached(url) do
-    case Cachex.get(:summary_cache, url) do
+    case Cachex.fetch(:summary_cache, url, &get_summary_cache_init/1) do
       {:ok, result} ->
         result
 
       {:loaded, result} ->
+        result
+
+      {:commit, result} ->
         result
 
       {:error, error} ->
