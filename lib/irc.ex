@@ -101,7 +101,7 @@ defmodule Overdiscord.IRC.Bridge do
     nick_color = get_name_color(state, nick)
     db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
     # |> Enum.flat_map(&split_at_irc_max_length/1)
-    escaped_nick = [Enum.intersperse(String.graphemes(nick), <<204, 178>>), <<204, 178>>]
+    escaped_nick = irc_unping(nick)
 
     msg
     |> String.split("\n")
@@ -1087,15 +1087,16 @@ defmodule Overdiscord.IRC.Bridge do
             "Unable to retrieve image URL, report this error to OvermindDL1"
         end
       end,
+      "escape" => fn _cmd, arg, _auth, _chan, _state ->
+        irc_unping(arg)
+      end,
       "list" => fn _cmd, _args, _auth, chan, state ->
         try do
           names =
             Alchemy.Cache.search(:members, &(&1.user.bot == false))
             |> Enum.map(& &1.user.username)
             |> Enum.sort()
-            |> Enum.map(
-              &to_string([Enum.intersperse(String.graphemes(&1), <<204, 178>>), <<204, 178>>])
-            )
+            |> Enum.map(&irc_unping/1)
             |> Enum.join("` `")
 
           send_msg_both("Discord Names: `#{names}`", chan, state.client, discord: false)
@@ -1810,6 +1811,9 @@ defmodule Overdiscord.IRC.Bridge do
   def get_format_code_color("grey"), do: "14"
   def get_format_code_color("silver"), do: "15"
   def get_format_code_color(_color), do: nil
+
+  def irc_unping(<<c::utf8>>), do: <<c::utf8, 204, 178>>
+  def irc_unping(<<c::utf8, rest::binary>>), do: <<c::utf8, 226, 128, 139, rest::binary>>
 
   def get_valid_format_codes,
     do: [
