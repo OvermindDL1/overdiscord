@@ -39,7 +39,7 @@ defmodule Overdiscord.Commands do
       content ->
         # IO.inspect("Msg dump: #{inspect msg}")
         IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
-        irc_content = get_msg_content_processed(msg)
+        # irc_content = get_msg_content_processed(msg)
         #        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
 
         Enum.map(msg.attachments, fn %{

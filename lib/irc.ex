@@ -1740,17 +1740,17 @@ defmodule Overdiscord.IRC.Bridge do
     end
   end
 
-  defp get_format_code(foreground, background) do
-    foreground = get_format_code("-" <> foreground)
-
-    background =
-      case get_color_format_code(background) do
-        "" -> ""
-        code -> ",#{code}"
-      end
-
-    "#{foreground}#{background}"
-  end
+  # defp get_format_code(foreground, background) do
+  #   foreground = get_format_code("-" <> foreground)
+  #
+  #   background =
+  #     case get_color_format_code(background) do
+  #       "" -> ""
+  #       code -> ",#{code}"
+  #     end
+  #
+  #   "#{foreground}#{background}"
+  # end
 
   def get_format_code(format)
   def get_format_code(""), do: ""

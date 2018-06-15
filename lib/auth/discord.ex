@@ -2,8 +2,6 @@ import ProtocolEx
 
 defimplEx Discord, %Alchemy.Message{}, for: Overdiscord.Auth do
   def to_auth(msg) do
-    host = "Discord"
-
     {:ok, guild_id} = Alchemy.Cache.guild_id(msg.channel_id)
 
     %Overdiscord.Auth.AuthData{

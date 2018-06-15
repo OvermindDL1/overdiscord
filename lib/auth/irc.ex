@@ -4,7 +4,7 @@ defimplEx IRC, {chan, %ExIrc.SenderInfo{}, %Overdiscord.IRC.Bridge.State{}} when
   for: Overdiscord.Auth do
   def to_auth({chan, senderinfo, state}) do
     host = senderinfo.host
-    user = senderinfo.user
+    _user = senderinfo.user
     nick = senderinfo.nick
 
     %Overdiscord.Auth.AuthData{
