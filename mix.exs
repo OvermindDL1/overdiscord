@@ -40,7 +40,7 @@ defmodule Overdiscord.Mixfile do
       # {:meeseeks, "~> 0.7.7"},
       {:meeseeks, github: "mischov/meeseeks"},
       {:opengraph, "~> 0.1.0"},
-      {:cachex, "~> 2.1"},
+      {:cachex, "~> 3.0"},
       {:exsync, "~> 0.2", only: :dev},
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
       {:exleveldb, "~> 0.12"},
