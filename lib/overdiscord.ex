@@ -8,6 +8,7 @@ defmodule Overdiscord do
   @doc "Application entrance location, unused args"
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
+    import Cachex.Spec
 
     case Code.ensure_loaded(ExSync) do
       {:module, ExSync} -> ExSync.start()
@@ -29,7 +30,7 @@ defmodule Overdiscord do
           # default_ttl: :timer.hours(24),
           disable_ode: true,
           # ttl_interval: :timer.hours(1),
-          limit: %Cachex.Limit{limit: 10000, reclaim: 0.1},
+          limit: limit(size: 10000, reclaim: 0.1, policy: Cachex.Policy.LRW),
           record_stats: true
         ]
       ])
