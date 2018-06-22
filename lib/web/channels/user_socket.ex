@@ -1,5 +1,6 @@
 defmodule Overdiscord.Web.UserSocket do
   use Phoenix.Socket
+  use Drab.Socket
 
   ## Channels
   # channel "room:*", Overdiscord.Web.RoomChannel

@@ -62,7 +62,7 @@ config :overdiscord, Overdiscord.Web.Endpoint,
       ~r{priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$},
       ~r{priv/gettext/.*(po)$},
       ~r{lib/web/views/.*(ex)$},
-      ~r{lib/web/templates/.*(eex)$}
+      ~r{lib/web/templates/.*(eex|drab)$}
     ]
   ]
 
@@ -77,3 +77,11 @@ config :phoenix, :stacktrace_depth, 20
 config :phoenix, :json_library, Jason
 
 config :drab, pubsub: Overdiscord.Web.PubSub
+
+config :phoenix, :template_engines,
+  drab: Drab.Live.Engine
+
+config :drab,
+  main_phoenix_app: :overdiscord,
+  endpoint: Overdiscord.Endpoint,
+  pubsub: Overdiscord.Web.PubSub
