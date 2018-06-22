@@ -9,7 +9,7 @@ defmodule Overdiscord.Web.Endpoint do
     only: ~w(css fonts images js favicon.ico robots.txt)
   )
 
-  socket("/socket", DevAppWeb.UserSocket, websocket: true, longpoll: false)
+  socket("/socket", Overdiscord.Web.UserSocket, websocket: true, longpoll: false)
 
   if code_reloading? do
     socket("/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket)

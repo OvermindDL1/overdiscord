@@ -4,9 +4,9 @@ defmodule Overdiscord.IRC.Bridge do
   defmodule State do
     defstruct host: "irc.esper.net",
               port: 6667,
-              pass: System.get_env("OVERBOT_PASS") || throw("MISSING IRC PASSWORD"),
+              pass: {:SYSTEM, "OVERBOT_PASS"},
               nick: "overbot",
-              user: System.get_env("OVERBOT_USER") || throw("MISSING IRC USER"),
+              user: {:SYSTEM, "OVERBOT_USER"},
               name: "overbot",
               ready: false,
               client: nil,
@@ -15,6 +15,15 @@ defmodule Overdiscord.IRC.Bridge do
                 logouts: %{}
               }
   end
+
+  defp get_config_value({:SYSTEM, key}) do
+    case System.get_env(key) do
+      nil -> throw(IO.inspect("MISSING #{key}"))
+      value -> value
+    end
+  end
+
+  defp get_config_value(value), do: value
 
   def send_event(auth, event_data, to)
 
@@ -307,21 +316,21 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:connected, _server, _port}, state) do
     IO.inspect("connecting bridge...", label: "State")
-    # IO.inspect({state.client, state.pass, state.nick, state.user, state.name})
     # TODO:  Blegh!  Check if ExIRC has a better way here, because what on earth...
     # Process.sleep(5000)
     IO.inspect("Connect should be complete", label: "State")
-    # ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
+
     spawn(fn ->
+      IO.inspect(get_config_value(state.user), label: :BLARGH)
       Process.sleep(2000)
 
-      IO.puts(
-        "sending logon information via IRC... #{
-          inspect({state.client, state.pass, state.nick, state.user, state.name})
-        }"
+      ExIrc.Client.logon(
+        state.client,
+        get_config_value(state.pass),
+        state.nick,
+        get_config_value(state.user),
+        state.name
       )
-
-      ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     end)
 
     {:noreply, state}
@@ -345,6 +354,7 @@ defmodule Overdiscord.IRC.Bridge do
         :ok
 
       omsg ->
+        dispatch_msg("#{nick}: #{msg}")
         if(user === "~Gregorius", do: handle_greg(msg, state.client))
         msg = convert_message_to_discord(msg)
         IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}", label: "State")
@@ -547,6 +557,7 @@ defmodule Overdiscord.IRC.Bridge do
           |> List.flatten()
           |> Enum.map(fn msg ->
             ExIrc.Client.msg(client, :privmsg, chan, prefix <> msg)
+            dispatch_msg(msg)
             Process.sleep(200)
           end)
         end)
@@ -1832,6 +1843,10 @@ defmodule Overdiscord.IRC.Bridge do
 
   def irc_unping(<<c::utf8>>), do: <<c::utf8, 204, 178>>
   def irc_unping(<<c::utf8, rest::binary>>), do: <<c::utf8, 226, 128, 139, rest::binary>>
+
+  defp dispatch_msg(msg) do
+    Overdiscord.Web.GregchatCommander.append_msg(msg)
+  end
 
   def get_valid_format_codes,
     do: [

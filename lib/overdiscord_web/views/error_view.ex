@@ -1,7 +1,7 @@
 defmodule Overdiscord.Web.ErrorView do
   use Overdiscord.Web, :view
 
-  import Logger
+  require Logger
 
   # If you want to customize a particular status code
   # for a certain format, you may uncomment below.

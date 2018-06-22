@@ -27,10 +27,17 @@ defmodule Overdiscord.Web do
     end
   end
 
+  def commander do
+    quote do
+      use Phoenix.HTML
+      alias Overdiscord.Web.Router.Helpers, as: Routes
+    end
+  end
+
   def view do
     quote do
       use Phoenix.View,
-        root: "lib/web/templates",
+        root: "lib/overdiscord_web/templates",
         namespace: Overdiscord.Web
 
       # Import convenience functions from controllers

@@ -41,7 +41,9 @@ config :overdiscord, Overdiscord.Cron,
 config :overdiscord, Overdiscord.Web.Endpoint,
   server: true,
   url: [host: "home.overminddl1.com"],
-  secret_key_base: {:SYSTEM, "OVERDISCORD_WEB_KEY_BASE"},
+  secret_key_base:
+    System.get_env("OVERDISCORD_WEB_KEY_BASE") ||
+      throw("Set `secret_key_base` via the environment variable `OVERDISCORD_WEB_KEY_BASE`"),
   render_errors: [view: Overdiscord.Web.ErrorView, accepts: ~w(html json)],
   pubsub: [name: Overdiscord.Web.PubSub, adapter: Phoenix.PubSub.PG2],
   http: [port: 5000],
@@ -61,8 +63,8 @@ config :overdiscord, Overdiscord.Web.Endpoint,
     patterns: [
       ~r{priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$},
       ~r{priv/gettext/.*(po)$},
-      ~r{lib/web/views/.*(ex)$},
-      ~r{lib/web/templates/.*(eex|drab)$}
+      ~r{lib/overdiscord_web/views/.*(ex)$},
+      ~r{lib/overdiscord_web/templates/.*(eex|drab)$}
     ]
   ]
 
@@ -82,5 +84,6 @@ config :phoenix, :template_engines, drab: Drab.Live.Engine
 
 config :drab,
   main_phoenix_app: :overdiscord,
-  endpoint: Overdiscord.Endpoint,
-  pubsub: Overdiscord.Web.PubSub
+  endpoint: Overdiscord.Web.Endpoint,
+  pubsub: Overdiscord.Web.PubSub,
+  js_socket_constructor: "PhoenixSocket"
