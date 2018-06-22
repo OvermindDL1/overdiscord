@@ -78,8 +78,7 @@ config :phoenix, :json_library, Jason
 
 config :drab, pubsub: Overdiscord.Web.PubSub
 
-config :phoenix, :template_engines,
-  drab: Drab.Live.Engine
+config :phoenix, :template_engines, drab: Drab.Live.Engine
 
 config :drab,
   main_phoenix_app: :overdiscord,
