@@ -20,6 +20,7 @@ defmodule Overdiscord do
     children = [
       worker(Overdiscord.Storage, []),
       worker(Overdiscord.Cron, []),
+      Overdiscord.Web.Endpoint,
       worker(Overdiscord.IRC.Bridge, []),
       worker(Alchemy.Client, [System.get_env("OVERDISCORD_TOKEN"), []]),
       worker(Overdiscord.Commands, []),
@@ -38,5 +39,10 @@ defmodule Overdiscord do
 
     opts = [strategy: :one_for_one, name: Overdiscord.Supervisor, restart: :permanent]
     Supervisor.start_link(children, opts)
+  end
+
+  def config_change(changed, _new, removed) do
+    Overdiscord.Web.Endpoint.config_change(changed, removed)
+    :ok
   end
 end

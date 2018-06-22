@@ -4,9 +4,9 @@ defmodule Overdiscord.IRC.Bridge do
   defmodule State do
     defstruct host: "irc.esper.net",
               port: 6667,
-              pass: System.get_env("OVERBOT_PASS"),
+              pass: System.get_env("OVERBOT_PASS") || throw("MISSING IRC PASSWORD"),
               nick: "overbot",
-              user: System.get_env("OVERBOT_USER"),
+              user: System.get_env("OVERBOT_USER") || throw("MISSING IRC USER"),
               name: "overbot",
               ready: false,
               client: nil,
@@ -314,7 +314,13 @@ defmodule Overdiscord.IRC.Bridge do
     # ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     spawn(fn ->
       Process.sleep(2000)
-      IO.puts("sending logon information via IRC...")
+
+      IO.puts(
+        "sending logon information via IRC... #{
+          inspect({state.client, state.pass, state.nick, state.user, state.name})
+        }"
+      )
+
       ExIrc.Client.logon(state.client, state.pass, state.nick, state.user, state.name)
     end)
 
@@ -918,7 +924,7 @@ defmodule Overdiscord.IRC.Bridge do
                 {:ok, datetime} ->
                   case auth do
                     # OvermindDL1
-                    %{host: "id-16796." <> _, user: "uid16796"} ->
+                    %{host: "id-16796." <> _} ->
                       12
 
                     # Greg
@@ -982,7 +988,7 @@ defmodule Overdiscord.IRC.Bridge do
               {:ok, seconds} ->
                 case auth do
                   # OvermindDL1
-                  %{host: "id-16796." <> _, user: "uid16796"} ->
+                  %{host: "id-16796." <> _} ->
                     12
 
                   # Greg
@@ -1735,9 +1741,15 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   defp is_admin(auth)
-  defp is_admin(%{host: "id-16796." <> _, user: "uid16796"}), do: true
+  defp is_admin(%{user: "~uid16796"}), do: true
   defp is_admin(%{host: "ltea-" <> _, user: "~Gregorius"}), do: true
-  defp is_admin(_), do: false
+
+  defp is_admin(auth),
+    do:
+      (
+        IO.inspect(auth, label: :AuthFailure)
+        false
+      )
 
   defp get_name_color(state, name) do
     case db_get(state, :kv, {:name_formatting, name}) do

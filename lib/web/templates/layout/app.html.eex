@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no, user-scalable=no"/>
+        <title>Overbot</title>
+        <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700' rel='stylesheet' type='text/css'>
+        <link media="all" type="text/css" rel="stylesheet" href="https://gregtech.overminddl1.com/static/css/normalize.css">
+        <link media="all" type="text/css" rel="stylesheet" href="https://gregtech.overminddl1.com/static/css/styles.css">
+        <link media="all" type="text/css" rel="stylesheet" href="https://gregtech.overminddl1.com/static/css/colorbox.css">
+        <link media="all" type="text/css" rel="stylesheet" href="https://gregtech.overminddl1.com/static/css/tooltipster.css">
+        <link media="all" type="text/css" rel="stylesheet" href="https://gregtech.overminddl1.com/static/css/tooltipster-shadow.css">
+        <link media="all" type="text/css" rel="stylesheet" href="https://gregtech.overminddl1.com/static/css/asciidoctor.css">
+        <link rel="stylesheet" href="<%= Routes.static_path(@conn, "/css/app.css") %>"/>
+    </head>
+    <body>
+        <div class="navWrapper fixed">
+            <nav class="clearfix">
+                <a href="/" class="logo">Overbot</a>
+                <ul class="links clearfix">
+                    <li><a href="https://gregtech.overminddl1.com">Gregtech</a></li>
+                    <li><a href="<%= Routes.gregchat_path(@conn, :index) %>">Gregchat</a></li>
+                </ul>
+            </nav>
+        </div>
+        <main role="main" class="contents jumbo">
+            <p class="alert alert-info" role="alert"><%= get_flash(@conn, :info) %></p>
+            <p class="alert alert-danger" role="alert"><%= get_flash(@conn, :error) %></p>
+            <%= render @view_module, @view_template, assigns %>
+        </main>
+        <script type="text/javascript" src="<%= Routes.static_path(@conn, "/js/app.js") %>"></script>
+    </body>
+ </html>

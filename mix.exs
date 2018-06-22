@@ -8,7 +8,7 @@ defmodule Overdiscord.Mixfile do
       elixir: "~> 1.4",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      compilers: Mix.compilers() ++ [:protocol_ex],
+      compilers: [:phoenix, :gettext] ++ Mix.compilers() ++ [:protocol_ex],
       deps: deps(),
       dialyzer: [
         plt_add_deps: :transitive
@@ -38,7 +38,6 @@ defmodule Overdiscord.Mixfile do
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
       {:meeseeks, "~> 0.9"},
-      {:opengraph, "~> 0.1.0"},
       {:cachex, "~> 3.0"},
       {:exsync, "~> 0.2", only: :dev},
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
@@ -47,7 +46,15 @@ defmodule Overdiscord.Mixfile do
       {:quantum, "~> 2.2"},
       {:timex, "~> 3.2"},
       {:luerl, "~> 0.3"},
-      {:protocol_ex, "~> 0.3.12"}
+      {:protocol_ex, "~> 0.3.12"},
+      {:phoenix, github: "phoenixframework/phoenix", override: true},
+      {:phoenix_pubsub, "~> 1.0"},
+      {:phoenix_html, "~> 2.11"},
+      {:phoenix_live_reload, "~> 1.0", only: :dev},
+      {:gettext, "~> 0.11"},
+      {:jason, "~> 1.0"},
+      {:cowboy, "~> 1.0"},
+      {:drab, "~> 0.8.3"}
     ]
   end
 end
