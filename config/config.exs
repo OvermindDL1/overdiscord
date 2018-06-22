@@ -75,3 +75,5 @@ config :phoenix, :stacktrace_depth, 20
 
 # Use Jason for JSON parsing in Phoenix and Ecto
 config :phoenix, :json_library, Jason
+
+config :drab, pubsub: Overdiscord.Web.PubSub
