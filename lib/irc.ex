@@ -569,9 +569,14 @@ defmodule Overdiscord.IRC.Bridge do
         if opts[:discord] == :simple do
           prefix <> String.replace(Enum.join(List.wrap(msgs)), "\\n", "\n#{prefix}")
         else
-          convert_message_to_discord(
-            prefix <> String.replace(Enum.join(List.wrap(msgs)), "\\n", "\n#{prefix}")
-          )
+          msgs
+          |> List.wrap()
+          |> Enum.join("\n")
+          |> String.replace("\n", "\n#{prefix}")
+          |> case do
+            s -> prefix <> s
+          end
+          |> convert_message_to_discord()
         end
 
       Alchemy.Client.send_message(alchemy_channel(), amsg)
