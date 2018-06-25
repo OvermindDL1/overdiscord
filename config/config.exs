@@ -43,7 +43,13 @@ config :overdiscord, Overdiscord.Web.Endpoint,
   url: [host: "home.overminddl1.com"],
   secret_key_base:
     System.get_env("OVERDISCORD_WEB_KEY_BASE") ||
-      throw("Set `secret_key_base` via the environment variable `OVERDISCORD_WEB_KEY_BASE`"),
+      (case Mix.env() do
+         :test ->
+           "<TEST-KEY>"
+
+         _ ->
+           throw("Set `secret_key_base` via the environment variable `OVERDISCORD_WEB_KEY_BASE`")
+       end),
   render_errors: [view: Overdiscord.Web.ErrorView, accepts: ~w(html json)],
   pubsub: [name: Overdiscord.Web.PubSub, adapter: Phoenix.PubSub.PG2],
   http: [port: 5000],

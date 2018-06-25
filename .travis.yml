@@ -19,6 +19,7 @@ cache:
 env:
   global:
     - ELIXIR_ASSERT_TIMEOUT=2000
+    - MIX_ENV=test
 before_script:
   - mix deps.get
   - mix deps.compile
