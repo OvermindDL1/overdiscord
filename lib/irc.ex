@@ -341,8 +341,9 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:joined, "#gt-dev"}, state) do
+  def handle_info({:joined, "#gt-dev" = chan}, state) do
     state = %{state | ready: true}
+    send_msg_both("#{state.nick} has re-joined", chan, state.client, irc: false)
     {:noreply, state}
   end
 
