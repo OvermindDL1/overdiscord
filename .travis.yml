@@ -25,7 +25,7 @@ before_script:
 script:
   - mix compile # test
   - mix format --check-formatted
-  - mix inch.report
+  - #mix inch.report
 after_script:
   - echo Complete
 notifications:
