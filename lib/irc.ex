@@ -567,7 +567,13 @@ defmodule Overdiscord.IRC.Bridge do
     if opts[:discord] != false and chan == "#gt-dev" do
       amsg =
         if opts[:discord] == :simple do
-          prefix <> String.replace(Enum.join(List.wrap(msgs)), "\\n", "\n#{prefix}")
+          msgs
+          |> List.wrap()
+          |> Enum.join("\n")
+          |> String.replace("\n", "\n#{prefix}")
+          |> case do
+            s -> prefix <> s
+          end
         else
           msgs
           |> List.wrap()
