@@ -40,7 +40,7 @@
   "mochiweb": {:hex, :mochiweb, "2.15.0", "e1daac474df07651e5d17cc1e642c4069c7850dc4508d3db7263a0651330aacc", [:rebar3], []},
   "opengraph": {:hex, :opengraph, "0.1.0", "f1d4984fada1d14e87be7d51d28281be60e0c5c84a8aa36f8cac90884f8c35db", [:mix], [{:floki, "~> 0.11.0", [hex: :floki, optional: false]}, {:httpoison, "~> 0.10.0", [hex: :httpoison, optional: false]}]},
   "parse_trans": {:hex, :parse_trans, "3.2.0", "2adfa4daf80c14dc36f522cf190eb5c4ee3e28008fc6394397c16f62a26258c2", [:rebar3], []},
-  "phoenix": {:git, "https://github.com/phoenixframework/phoenix.git", "f97689b8df637c27a60aa359fe5fd87fa40e618f", []},
+  "phoenix": {:git, "https://github.com/phoenixframework/phoenix.git", "46128e095aaf9e5d261edaeb3f43df50ad144a7e", []},
   "phoenix_html": {:hex, :phoenix_html, "2.11.2", "86ebd768258ba60a27f5578bec83095bdb93485d646fc4111db8844c316602d6", [:mix], [{:plug, "~> 1.5", [hex: :plug, optional: false]}]},
   "phoenix_live_reload": {:hex, :phoenix_live_reload, "1.1.5", "8d4c9b1ef9ca82deee6deb5a038d6d8d7b34b9bb909d99784a49332e0d15b3dc", [:mix], [{:file_system, "~> 0.2.1 or ~> 0.3", [hex: :file_system, optional: false]}, {:phoenix, "~> 1.0 or ~> 1.2 or ~> 1.3", [hex: :phoenix, optional: false]}]},
   "phoenix_pubsub": {:hex, :phoenix_pubsub, "1.0.2", "bfa7fd52788b5eaa09cb51ff9fcad1d9edfeb68251add458523f839392f034c1", [:mix], []},
