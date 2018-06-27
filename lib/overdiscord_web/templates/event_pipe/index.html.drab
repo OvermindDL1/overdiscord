@@ -51,10 +51,8 @@
   <% end %>
 </div>
 
-<h2>Existing hooks<h2>
-<%= for {name, values} <- @hooks do %>
 <div>
-  <h3><%= inspect name %></h3>
+  <h2>Existing hooks</h2>
   <table>
     <thead>
       <tr>
@@ -64,17 +62,17 @@
         <th>Hook Arguments</th>
       </tr>
     </thead>
-    <tbody><%= for {priority, hook_module, hook_function, hook_args} <- values do %>
+    <tbody><%= for {priority, _matcher, _extra_matchers, hook_module, hook_function, hook_args} <- @hooks do %>
       <tr>
-        <td><%= priority %></td>
-        <td><%= hook_module %></td>
-        <td><%= hook_function %></td>
+        <td><%= inspect priority %></td>
+        <td><%= inspect hook_module %></td>
+        <td><%= inspect hook_function %></td>
         <td><%= for {arg, idx} <- Enum.with_index(hook_args) do %>
           <%= idx %>: <%= inspect arg %><% end %>
         </td>
       </tr><% end %>
     </tbody>
   </table>    
-</div><% end %>
+</div>
 
 

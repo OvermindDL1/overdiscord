@@ -5,36 +5,49 @@ defmodule Overdiscord.EventPipe do
   alias Overdiscord.Storage
 
   @hooks_db :eventpipe
+  @hooks_key :hooks
   @history 50
 
-  def add_hook(hooks_db \\ @hooks_db, hook_type, priority, module, function, args) do
-    Storage.put(hooks_db, :list_sorted_add, hook_type, {priority, module, function, args})
+  def add_hook(
+        hooks_db \\ @hooks_db,
+        priority,
+        %{} = matcher,
+        extra_matches,
+        module,
+        function,
+        args
+      )
+      when is_atom(module) and is_atom(function) and is_list(args) and is_list(extra_matches) do
+    Storage.put(
+      hooks_db,
+      :list_sorted_add,
+      @hooks_key,
+      {priority, matcher, extra_matches, module, function, args}
+    )
   end
 
-  def remove_hook(hooks_db \\ @hooks_db, hook_type, priority, module, function, args) do
-    Storage.put(hooks_db, :list_sorted_remove, hook_type, {priority, module, function, args})
-  end
+  # def add_hook(hooks_db \\ @hooks_db, hook_type, priority, module, function, args) do
+  #  Storage.put(hooks_db, :list_sorted_add, hook_type, {priority, module, function, args})
+  # end
 
-  def remove_hook(hooks_db \\ @hooks_db, hook_type, priority) do
-    get_hooks(hook_type)
-    |> Enum.map(fn
-      {^priority, _module, _function, _args} = value ->
-        Storage.put(hooks_db, :list_sorted_remove, hook_type, value)
-        value
+  # def remove_hook(hooks_db \\ @hooks_db, hook_type, priority, module, function, args) do
+  #  Storage.put(hooks_db, :list_sorted_remove, hook_type, {priority, module, function, args})
+  # end
 
-      _ ->
-        []
-    end)
-  end
+  # def remove_hook(hooks_db \\ @hooks_db, hook_type, priority) do
+  #  get_hooks(hook_type)
+  #  |> Enum.map(fn
+  #    {^priority, _module, _function, _args} = value ->
+  #      Storage.put(hooks_db, :list_sorted_remove, hook_type, value)
+  #      value
+  #
+  #    _ ->
+  #      []
+  #  end)
+  # end
 
-  def get_all_hooks(hooks_db \\ @hooks_db) do
-    Storage.get_all(hooks_db, fn {{:list, key}, value} ->
-      {key, value}
-    end)
-  end
-
-  def get_hooks(hooks_db \\ @hooks_db, hook_type) do
-    Storage.get(hooks_db, :list_sorted, hook_type)
+  def get_hooks(hooks_db \\ @hooks_db) do
+    Storage.get(hooks_db, :list_sorted, @hooks_key)
   end
 
   def get_history(hooks_db \\ @hooks_db) do
@@ -59,14 +72,15 @@ defmodule Overdiscord.EventPipe do
     Storage.put(hooks_db, :list_truncated, :history, {matcher_data, @history * 2, @history})
     arg = [auth, event_data]
 
-    Storage.get(hooks_db, :list_sorted, :hooks)
+    Storage.get(hooks_db, :list_sorted, @hooks_key)
     |> Enum.each(fn {_priority, matcher, extra_matches, module, function, args} ->
-      case matcher_data do
+      case matcher_data |> IO.inspect(label: inspect(matcher)) do
+        # TODO:  This does not match, manually match...  >.<
         ^matcher ->
           extra_matches
           |> Enum.all?(fn
-            {:permission, permission} ->
-              auth.permissions.(permission)
+            {:permissions, permissions} ->
+              Enum.all?(List.wrap(permissions), &auth.permissions.(&1))
 
             {:msg, :equals, equals} ->
               event_data[:msg] == equals

@@ -25,7 +25,10 @@ defmodule ElixirParse do
       |> Map.put_new(:number, allowed_types[:float] || allowed_types[:integer])
       |> Map.put_new(:atom, allowed_types[:safe_atom] || allowed_types[:unsafe_atom])
 
-    parse(input, allowed_types, opts)
+    case parse(input, allowed_types, opts) do
+      {:error, _} = err -> err
+      {:ok, result, rest} -> {:ok, result, skip_whitespace(rest)}
+    end
   end
 
   def skip_whitespace(" " <> input), do: skip_whitespace(input)
@@ -34,44 +37,174 @@ defmodule ElixirParse do
   def skip_whitespace("\r" <> input), do: skip_whitespace(input)
   def skip_whitespace(input), do: input
 
-  defp parse(input, allowed_types, opts) do
+  defp parse("", _a, _opts) do
+    {:error, ""}
+  end
+
+  defp parse(input, a, opts) do
     input = skip_whitespace(input)
 
     ignore = {:error, :ignore}
 
     with(
-      {:error, _} <- (allowed_types[:atom] && parse_atom(input, allowed_types, opts)) || ignore,
-      {:error, _} <-
-        (allowed_types[:number] && parse_number(input, allowed_types, opts)) || ignore,
+      {:error, _} <- (a[:atom] && parse_atom(input, a, opts)) || ignore,
+      {:error, _} <- (a[:list] && parse_list(input, a, opts)) || ignore,
+      {:error, _} <- (a[:tuple] && parse_tuple(input, a, opts)) || ignore,
+      {:error, _} <- (a[:string] && parse_string(input, a, opts)) || ignore,
+      {:error, _} <- (a[:number] && parse_number(input, a, opts)) || ignore,
       do: {:error, input}
     )
   end
 
-  defp parse_atom(":" <> input, allowed_types, _opts) do
-    case String.split(input, ~R|[^a-zA-Z?!]|, parts: 2) do
-      ["", _] ->
-        {:error, input}
-
-      [atom | input] ->
-        input = (input == [] && "") || hd(input)
-
+  defp parse_atom(":" <> input, allowed_types, opts) do
+    case parse_string(input, allowed_types, opts) do
+      {:ok, atom, rest} ->
         if allowed_types[:unsafe_atom] do
-          {:ok, String.to_atom(atom), input}
+          {:ok, String.to_atom(atom), rest}
         else
           try do
-            {:ok, String.to_existing_atom(atom), input}
+            {:ok, String.to_existing_atom(atom), rest}
           rescue
             ArgumentError -> {:error, input}
           end
         end
 
-      _ ->
-        {:error, input}
+      {:error, _} ->
+        case String.split(input, ~R|[^a-zA-Z_?!]|, parts: 2, include_captures: true) do
+          ["", _] ->
+            {:error, input}
+
+          [atom | input] ->
+            input = (input == [] && "") || Enum.join(input)
+
+            if allowed_types[:unsafe_atom] do
+              {:ok, String.to_atom(atom), input}
+            else
+              try do
+                {:ok, String.to_existing_atom(atom), input}
+              rescue
+                ArgumentError -> {:error, input}
+              end
+            end
+
+          _ ->
+            {:error, input}
+        end
     end
   end
 
-  defp parse_atom(input, _, _opts) do
+  defp parse_atom(input, allowed_types, _opts) do
+    first = String.first(input)
+
+    if first === String.upcase(first) and first !== String.downcase(first) do
+      case String.split(input, ~R|[^a-zA-Z_?!.]|, parts: 2, include_captures: true) do
+        [result] -> {result, ""}
+        [result | rest] -> {result, Enum.join(rest)}
+        [] -> nil
+      end
+      |> case do
+        nil -> nil
+        {"Elixir." <> _, _rest} = result -> result
+        {atom, rest} -> {"Elixir." <> atom, rest}
+      end
+      |> case do
+        nil ->
+          {:error, input}
+
+        {atom, rest} ->
+          if allowed_types[:unsafe_atom] do
+            {:ok, String.to_atom(atom), rest}
+          else
+            try do
+              {:ok, String.to_existing_atom(atom), rest}
+            rescue
+              ArgumentError -> {:error, input}
+            end
+          end
+      end
+    else
+      {:error, input}
+    end
+  end
+
+  defp parse_tuple("{" <> input, a, opts) do
+    input = skip_whitespace(input)
+    parse_tuple_element(input, a, opts, [])
+  end
+
+  defp parse_tuple(input, _, _opts) do
     {:error, input}
+  end
+
+  defp parse_tuple_element("}" <> input, _, _opts, results) do
+    {:ok, List.to_tuple(:lists.reverse(results)), input}
+  end
+
+  defp parse_tuple_element(input, a, opts, results) do
+    case parse(input, a, opts) do
+      {:error, _} = err ->
+        err
+
+      {:ok, result, rest} ->
+        rest =
+          case skip_whitespace(rest) do
+            "," <> rest -> skip_whitespace(rest)
+            rest -> rest
+          end
+
+        parse_tuple_element(rest, a, opts, [result | results])
+    end
+  end
+
+  defp parse_list("[" <> input, a, opts) do
+    input = skip_whitespace(input)
+    parse_list_element(input, a, opts, [])
+  end
+
+  defp parse_list(input, _a, _opts) do
+    {:error, input}
+  end
+
+  defp parse_list_element("]" <> input, _, _opts, results) do
+    {:ok, :lists.reverse(results), input}
+  end
+
+  defp parse_list_element(input, a, opts, results) do
+    case parse(input, a, opts) do
+      {:error, _} = err ->
+        err
+
+      {:ok, result, rest} ->
+        rest =
+          case skip_whitespace(rest) do
+            "," <> rest -> skip_whitespace(rest)
+            rest -> rest
+          end
+
+        parse_list_element(rest, a, opts, [result | results])
+    end
+  end
+
+  defp parse_string("\"" <> input, a, opts) do
+    parse_string_character(input, a, opts, "")
+  end
+
+  defp parse_string(input, _a, _opts), do: {:error, input}
+
+  defp parse_string_character("", _a, _opts, _result) do
+    {:error, ""}
+  end
+
+  defp parse_string_character("\"" <> input, _a, _opts, result) do
+    {:ok, result, input}
+  end
+
+  defp parse_string_character("\\\"" <> input, a, opts, result) do
+    parse_string_character(input, a, opts, result <> "\"")
+  end
+
+  defp parse_string_character(<<c::utf8, input::binary>>, a, opts, result) do
+    parse_string_character(input, a, opts, result <> <<c::utf8>>)
   end
 
   defp parse_number(input, %{integer: true, float: true}, _opts) do
