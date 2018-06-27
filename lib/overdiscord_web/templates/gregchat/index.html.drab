@@ -1,5 +1,10 @@
 Gregchat all the things!!!
 <br>
 <br>
+<form>
+  Name: <%= @name %>
+  <input id="send_body">
+  <button drab="click:send_body">Send</button>
+</form>
 <br>
-<div id="greg-irc-messages"></div>
+<div id="greg-irc-messages" style="background-color:rgba(255,255,255,0.7);"></div>

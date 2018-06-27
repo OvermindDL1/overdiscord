@@ -19,17 +19,24 @@
       <nav class="clearfix">
         <a href="/" class="logo">Overbot</a>
         <ul class="links clearfix">
-          <li><a href="https://gregtech.overminddl1.com">Gregtech</a></li>
-          <li><a href="<%= Routes.gregchat_path(@conn, :index) %>">Gregchat</a></li>
+          <li><a href="https://gregtech.overminddl1.com">Gregtech</a></li><%= if Account.authenticated?(@conn) do %>
+          <li><a href="<%= Routes.gregchat_path(@conn, :index) %>">Gregchat</a></li><%= if Account.can?(@conn, :eventpipe) do %>
+          <li><a href="<%= Routes.event_pipe_path(@conn, :index) %>">EventPipe</a></li><% end %>
+          <li>
+            <a href="<%= Routes.index_path(@conn, :logout) %>" rel="nofollow">Logout</a>
+          </li>
+          <% end %>
         </ul>
       </nav>
     </div>
     <main role="main" class="contents jumbo">
-      <p class="alert alert-info" role="alert"><%= get_flash(@conn, :info) %></p>
-      <p class="alert alert-danger" role="alert"><%= get_flash(@conn, :error) %></p>
-      <%= render @view_module, @view_template, assigns %>
+      <section class="wrapper">
+        <p class="alert alert-info" role="alert"><%= get_flash(@conn, :info) %></p>
+        <p class="alert alert-danger" role="alert"><%= get_flash(@conn, :error) %></p>
+        <%= render @view_module, @view_template, assigns %>
+      </section>
     </main>
     <script type="text/javascript" src="<%= Routes.static_path(@conn, "/js/app.js") %>"></script>
-    <%= Drab.Client.run(@conn) %>
+    <%= Drab.Client.run(@conn, [{Account.session_tag(), Account.get_authentication(@conn)}]) %>
   </body>
 </html>

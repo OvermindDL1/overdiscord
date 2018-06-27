@@ -24,6 +24,8 @@ defmodule Overdiscord.Web do
       import Plug.Conn
       import Overdiscord.Web.Gettext
       alias Overdiscord.Web.Router.Helpers, as: Routes
+      alias Overdiscord.Web.Account, as: Account
+      import Overdiscord.Web.Account.Plugs
     end
   end
 
@@ -31,6 +33,7 @@ defmodule Overdiscord.Web do
     quote do
       use Phoenix.HTML
       alias Overdiscord.Web.Router.Helpers, as: Routes
+      alias Overdiscord.Web.Account, as: Account
     end
   end
 
@@ -49,6 +52,7 @@ defmodule Overdiscord.Web do
       import Overdiscord.Web.ErrorHelpers
       import Overdiscord.Web.Gettext
       alias Overdiscord.Web.Router.Helpers, as: Routes
+      alias Overdiscord.Web.Account, as: Account
     end
   end
 
@@ -57,6 +61,7 @@ defmodule Overdiscord.Web do
       use Phoenix.Router
       import Plug.Conn
       import Phoenix.Controller
+      import Overdiscord.Web.Account.Plugs
     end
   end
 
@@ -64,6 +69,7 @@ defmodule Overdiscord.Web do
     quote do
       use Phoenix.Channel
       import Overdiscord.Web.Gettext
+      alias OverDiscord.Web.Account, as: Account
     end
   end
 

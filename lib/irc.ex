@@ -119,6 +119,7 @@ defmodule Overdiscord.IRC.Bridge do
         # ExIrc.Client.nick(state.client, "#{nick}{Discord}")
         ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", irc_msg)
         # ExIrc.Client.nick(state.client, state.nick)
+        dispatch_msg("@#{nick}: #{line}")
         Process.sleep(200)
       end)
     end)
@@ -390,6 +391,7 @@ defmodule Overdiscord.IRC.Bridge do
     action = convert_message_to_discord(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}", label: "State")
     Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
+    dispatch_msg("#{nick} #{action}")
     message_extra(:me, action, auth, chan, state)
     {:noreply, state}
   end

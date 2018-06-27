@@ -1,0 +1,80 @@
+<a href="<%= Routes.event_pipe_path(@conn, :history) %>">View Event History</a>
+
+<div>
+  <h2>Add new hook</h2>
+  <%= form_for @conn, Routes.event_pipe_path(@conn, :new_hook), [as: nil], fn f -> %>
+  <table>
+    <tr>
+      <th style="width:1%">Server</th>
+      <td><%= text_input f, "server", placeholder: "Server" %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Location</th>
+      <td><%= text_input f, "location", placeholder: "Location" %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Username</th>
+      <td><%= text_input f, "username", placeholder: "Username" %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Nickname</th>
+      <td><%= text_input f, "nickname", placeholder: "Nickname" %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Permission</th>
+      <td><%= text_input f, "permission", placeholder: "Permission" %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Event-Msg</th>
+      <td><%= text_input f, "event_msg", placeholder: "(exact =, starts-with ^, regex ~, default is contains)" %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Priority</th>
+      <td><%= number_input f, "priority", required: true %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Module</th>
+      <td><%= text_input f, "module", placeholder: "Module", required: true %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Function</th>
+      <td><%= text_input f, "function", placeholder: "Function", required: true %></td>
+    </tr>
+    <tr>
+      <th style="width:1%">Arguments</th>
+      <td><%= text_input f, "args", placeholder: "Arguments" %></td>
+    </tr>
+    <tr>
+      <td colspan="2"><%= submit "Create" %></td>
+    </tr>
+  </table>
+  <% end %>
+</div>
+
+<h2>Existing hooks<h2>
+<%= for {name, values} <- @hooks do %>
+<div>
+  <h3><%= inspect name %></h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Hook Module</th>
+        <th>Hook Function</th>
+        <th>Hook Arguments</th>
+      </tr>
+    </thead>
+    <tbody><%= for {priority, hook_module, hook_function, hook_args} <- values do %>
+      <tr>
+        <td><%= priority %></td>
+        <td><%= hook_module %></td>
+        <td><%= hook_function %></td>
+        <td><%= for {arg, idx} <- Enum.with_index(hook_args) do %>
+          <%= idx %>: <%= inspect arg %><% end %>
+        </td>
+      </tr><% end %>
+    </tbody>
+  </table>    
+</div><% end %>
+
+

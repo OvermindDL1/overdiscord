@@ -9,13 +9,28 @@ defmodule Overdiscord.Web.Router do
     plug(:put_secure_browser_headers)
   end
 
+  pipeline :authenticated do
+    plug(:plug_authenticated)
+  end
+
   pipeline :api do
     plug(:accepts, ["json"])
   end
 
+  scope "/eventpipe", Overdiscord.Web do
+    pipe_through([:browser, :authenticated])
+
+    get("/", EventPipeController, :index)
+    get("/history", EventPipeController, :history)
+    post("/new", EventPipeController, :new_hook)
+  end
+
   scope "/", Overdiscord.Web do
-    # Use the default browser stack
     pipe_through(:browser)
+
+    get("/", IndexController, :index)
+    post("/authenticate", IndexController, :authenticate)
+    get("/logout", IndexController, :logout)
 
     get("/gregchat", GregchatController, :index)
   end

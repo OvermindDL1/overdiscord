@@ -74,7 +74,31 @@ defmodule Overdiscord.Storage do
     {:leveldb, db}
   end
 
-  # TODO:  Make a `:list_pop` to only return the first instance of the value
+  def put({:leveldb, db}, :list_truncated, key, {value, max, keep}) do
+    key = :erlang.term_to_binary({:list, key})
+
+    oldValues =
+      case Exleveldb.get(db, key) do
+        :not_found -> []
+        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+      end
+
+    count = Enum.count(oldValues)
+
+    values =
+      if count + 1 > max do
+        oldValues
+        |> Enum.reverse([value])
+        |> Enum.drop(max - keep + 1)
+        |> Enum.reverse()
+      else
+        [value | oldValues]
+      end
+
+    values = :erlang.term_to_binary(values)
+    Exleveldb.put(db, key, values)
+    {:leveldb, db}
+  end
 
   def put({:leveldb, db}, :list_remove, key, value) do
     key = :erlang.term_to_binary({:list, key})
@@ -168,9 +192,9 @@ defmodule Overdiscord.Storage do
     db
   end
 
-  def get(db, type = :set, key), do: get(db, type, key, [])
-  def get(db, type = :list, key), do: get(db, type, key, [])
-  def get(db, type = :list_sorted, key), do: get(db, type, key, [])
+  def get(db, type, key) when type in [:set, :list, :list_sorted, :list_truncated],
+    do: get(db, type, key, [])
+
   def get(db, type, key), do: get(db, type, key, nil)
 
   def get(name, type, key, default) when is_atom(name) or is_binary(name) do
@@ -190,16 +214,8 @@ defmodule Overdiscord.Storage do
     end
   end
 
-  def get({:leveldb, db}, :list, key, default) do
-    key = :erlang.term_to_binary({:list, key})
-
-    case Exleveldb.get(db, key) do
-      :not_found -> default
-      {:ok, value} -> :erlang.binary_to_term(value, [:safe])
-    end
-  end
-
-  def get({:leveldb, db}, :list_sorted, key, default) do
+  def get({:leveldb, db}, type, key, default)
+      when type in [:list, :list_sorted, :list_truncated] do
     key = :erlang.term_to_binary({:list, key})
 
     case Exleveldb.get(db, key) do

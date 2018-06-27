@@ -1,0 +1,28 @@
+<table>
+  <thead>
+    <tr>
+      <th colspan="5">Auth</th>
+      <th>Event Data</th>
+    </tr>
+    <tr>
+      <th>Server</th>
+      <th>Location</th>
+      <th>Username</th>
+      <th>Nickname</th>
+      <th>Permission</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody><%= for %{auth: %{server: server, location: location, username: username, nickname: nickname, permissions: permissions}, event_data: event_data} <- @events do %>
+    <tr>
+      <td><%= inspect server %></td>
+      <td><%= inspect location %></td>
+      <td><%= inspect username %></td>
+      <td><%= inspect nickname %></td>
+      <td style="white-space:nowrap">
+        Admin: <%= permissions.(:admin) %>
+      </td>
+      <td><%= inspect event_data %></td>
+    </tr><% end %>
+  </tbody>
+</table>

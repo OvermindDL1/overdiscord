@@ -1,0 +1,5 @@
+<%= form_for @conn, Routes.index_path(@conn, :authenticate), [as: :authentication], fn f -> %>
+  
+Login ID: <%= text_input f, :id %>
+<%= submit "Search" %>
+<% end %>

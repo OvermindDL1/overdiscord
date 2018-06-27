@@ -2,6 +2,8 @@ defmodule Overdiscord.Web.UserSocket do
   use Phoenix.Socket
   use Drab.Socket
 
+  alias Overdiscord.Web.Account
+
   ## Channels
   # channel "room:*", Overdiscord.Web.RoomChannel
 
@@ -16,9 +18,9 @@ defmodule Overdiscord.Web.UserSocket do
   #
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
-  def connect(_params, socket) do
-    {:ok, socket}
-  end
+  # def connect(_params, socket) do
+  #  {:ok, socket}
+  # end
 
   # Socket id's are topics that allow you to identify all sockets for a given user:
   #
@@ -30,5 +32,9 @@ defmodule Overdiscord.Web.UserSocket do
   #     Overdiscord.Web.Endpoint.broadcast("user_socket:#{user.id}", "disconnect", %{})
   #
   # Returning `nil` makes this socket anonymous.
-  def id(_socket), do: nil
+  def id(socket) do
+    {:ok, name} = Account.get_name(socket)
+    IO.inspect({:incoming_socket, name})
+    "user_socket:#{name}"
+  end
 end
