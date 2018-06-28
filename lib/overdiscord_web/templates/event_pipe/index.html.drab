@@ -56,24 +56,24 @@
   <table>
     <thead>
       <tr>
-        <th>Priority</th>
+        <th style="width:1%">Priority</th>
         <th>Matcher</th>
         <th>Extra Matchers</th>
         <th>Hook Module</th>
         <th>Hook Function</th>
         <th>Hook Arguments</th>
-        <th></th>
+        <th style="width:1%"></th>
       </tr>
     </thead>
     <tbody><%= for {priority, matcher, extra_matchers, hook_module, hook_function, hook_args} <- @hooks do %>
       <tr>
-        <td><%= inspect priority %></td>
+        <td style="width:1%"><%= inspect priority %></td>
         <td><%= inspect matcher %></td>
         <td><%= inspect extra_matchers %></td>
         <td><%= inspect hook_module %></td>
         <td><%= inspect hook_function %></td>
         <td><%= inspect hook_args %></td>
-        <td><%= link "Delete", to: Routes.event_pipe_path(@conn, :delete_hook, priority), method: :delete, data: [confirm: "Are you sure?"], class: "btn btn-danger btn-xs" %></td>
+        <td style="width:1%"><%= link "Delete", to: Routes.event_pipe_path(@conn, :delete_hook, priority), method: :delete, data: [confirm: "Are you sure?"], class: "btn btn-danger btn-xs" %></td>
       </tr><% end %>
     </tbody>
   </table>    
