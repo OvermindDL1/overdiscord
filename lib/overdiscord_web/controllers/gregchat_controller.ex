@@ -8,11 +8,11 @@ defmodule Overdiscord.Web.GregchatController do
     render(conn, "index.html", name: name)
   end
 
-  def index(conn, _params) do
-    conn
-    |> put_status(:not_found)
-    |> put_layout(false)
-    |> put_view(Overdiscord.Web.ErrorView)
-    |> render("404.html")
-  end
+  # def index(conn, _params) do
+  #  conn
+  #  |> put_status(:not_found)
+  #  |> put_layout(false)
+  #  |> put_view(Overdiscord.Web.ErrorView)
+  #  |> render("404.html")
+  # end
 end

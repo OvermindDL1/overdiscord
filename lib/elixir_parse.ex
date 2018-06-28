@@ -8,6 +8,7 @@ defmodule ElixirParse do
     safe_atom: true,
     unsafe_atom: false,
     string: true,
+    naked_string: false,
     binary: true,
     list: true,
     tuple: true
@@ -27,6 +28,7 @@ defmodule ElixirParse do
 
     case parse(input, allowed_types, opts) do
       {:error, _} = err -> err
+      {:error, _type, rest} -> {:error, rest}
       {:ok, result, rest} -> {:ok, result, skip_whitespace(rest)}
     end
   end
@@ -52,8 +54,14 @@ defmodule ElixirParse do
       {:error, _} <- (a[:tuple] && parse_tuple(input, a, opts)) || ignore,
       {:error, _} <- (a[:string] && parse_string(input, a, opts)) || ignore,
       {:error, _} <- (a[:number] && parse_number(input, a, opts)) || ignore,
-      do: {:error, input}
-    )
+      {:error, _} <- (a[:naked_string] && parse_naked_string(input, a, opts)) || ignore,
+      :ok = :ok
+    ) do
+      {:error, input}
+    else
+      {:ok, _result, _rest} = ok -> ok
+      {:error, _in, _input} = err -> err
+    end
   end
 
   defp parse_atom(":" <> input, allowed_types, opts) do
@@ -65,7 +73,7 @@ defmodule ElixirParse do
           try do
             {:ok, String.to_existing_atom(atom), rest}
           rescue
-            ArgumentError -> {:error, input}
+            ArgumentError -> {:error, :atom, input}
           end
         end
 
@@ -83,12 +91,12 @@ defmodule ElixirParse do
               try do
                 {:ok, String.to_existing_atom(atom), input}
               rescue
-                ArgumentError -> {:error, input}
+                ArgumentError -> {:error, :atom, input}
               end
             end
 
           _ ->
-            {:error, input}
+            {:error, :atom, input}
         end
     end
   end
@@ -142,8 +150,8 @@ defmodule ElixirParse do
 
   defp parse_tuple_element(input, a, opts, results) do
     case parse(input, a, opts) do
-      {:error, _} = err ->
-        err
+      {:error, err} ->
+        {:error, :tuple, err}
 
       {:ok, result, rest} ->
         rest =
@@ -171,8 +179,8 @@ defmodule ElixirParse do
 
   defp parse_list_element(input, a, opts, results) do
     case parse(input, a, opts) do
-      {:error, _} = err ->
-        err
+      {:error, err} ->
+        {:error, :list, err}
 
       {:ok, result, rest} ->
         rest =
@@ -214,6 +222,27 @@ defmodule ElixirParse do
       {{n, rest}, :error} -> {:ok, n, rest}
       {:error, {m, rest}} -> {:ok, m, rest}
       {:error, :error} -> {:error, input}
+    end
+  end
+
+  defp parse_number(input, %{integer: true}, _opts) do
+    case Integer.parse(input) do
+      {n, rest} -> {:ok, n, rest}
+      :error -> {:error, input}
+    end
+  end
+
+  defp parse_number(input, %{float: true}, _opts) do
+    case Float.parse(input) do
+      {m, rest} -> {:ok, m, rest}
+      :error -> {:error, input}
+    end
+  end
+
+  defp parse_naked_string(input, _allowed_types, _opts) do
+    case String.split(input, ~R|[ \t,\[\]]|, include_captures: true, trim: true, parts: 2) do
+      [] -> {:error, input}
+      [result | rest] -> {:ok, result, Enum.join(rest)}
     end
   end
 end

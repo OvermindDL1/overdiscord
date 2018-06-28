@@ -27,13 +27,8 @@ defmodule Overdiscord.IRC.Bridge do
 
   def send_event(auth, event_data, to)
 
-  def send_event(auth, %{msg: msg}, _to) do
-    send_msg(auth.nickname, msg)
-  end
-
-  def send_event(auth, event_data, _to) do
-    IO.inspect({auth, event_data}, label: "Unhandled IRC send_event")
-    nil
+  def send_event(auth, event_data, to) do
+    :gen_server.cast(:irc_bridge, {:send_event, auth, event_data, to})
   end
 
   def send_msg("", _), do: nil
@@ -106,7 +101,21 @@ defmodule Overdiscord.IRC.Bridge do
     {:reply, state.client, state}
   end
 
+  def handle_cast({:send_event, auth, event_data, to}, state) do
+    case event_data do
+      %{msg: msg} ->
+        handle_cast({:send_msg, auth.nickname, msg, to}, state)
+
+      _ ->
+        IO.inspect(event_data, label: :IRCUnhandledEventData)
+    end
+  end
+
   def handle_cast({:send_msg, nick, msg}, state) do
+    handle_cast({:send_msg, nick, msg, "#gt-dev"}, state)
+  end
+
+  def handle_cast({:send_msg, nick, msg, chan}, state) do
     nick_color = get_name_color(state, nick)
     db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
     # |> Enum.flat_map(&split_at_irc_max_length/1)
@@ -117,7 +126,7 @@ defmodule Overdiscord.IRC.Bridge do
     |> Enum.each(fn line ->
       Enum.map(split_at_irc_max_length("#{nick_color}#{escaped_nick}\x0F: #{line}"), fn irc_msg ->
         # ExIrc.Client.nick(state.client, "#{nick}{Discord}")
-        ExIrc.Client.msg(state.client, :privmsg, "#gt-dev", irc_msg)
+        ExIrc.Client.msg(state.client, :privmsg, chan, irc_msg)
         # ExIrc.Client.nick(state.client, state.nick)
         dispatch_msg("@#{nick}: #{line}")
         Process.sleep(200)
@@ -356,11 +365,12 @@ defmodule Overdiscord.IRC.Bridge do
         :ok
 
       omsg ->
+        spawn(fn -> Overdiscord.EventPipe.inject({chan, auth, state}, %{msg: msg}) end)
         dispatch_msg("#{nick}: #{msg}")
         if(user === "~Gregorius", do: handle_greg(msg, state.client))
         msg = convert_message_to_discord(msg)
         IO.inspect("Sending message from IRC to Discord: **#{nick}**: #{msg}", label: "State")
-        Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
+        # Alchemy.Client.send_message("320192373437104130", "**#{nick}:** #{msg}")
         message_extra(:msg, omsg, auth, chan, state)
     end
 
@@ -369,8 +379,12 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:received, msg, %{nick: _nick, user: _user} = auth, chan}, state) do
     case msg do
-      "!" <> _ -> :ok
-      msg -> message_extra(:msg, msg, auth, chan, state)
+      "!" <> _ ->
+        :ok
+
+      msg ->
+        spawn(fn -> Overdiscord.EventPipe.inject({chan, auth, state}, %{msg: msg}) end)
+        message_extra(:msg, msg, auth, chan, state)
     end
 
     {:noreply, state}
@@ -378,8 +392,12 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:received, msg, %{nick: nick, user: _user} = auth}, state) do
     case msg do
-      "!" <> _ -> :ok
-      msg -> message_extra(:msg, msg, auth, nick, state)
+      "!" <> _ ->
+        :ok
+
+      msg ->
+        spawn(fn -> Overdiscord.EventPipe.inject({nick, auth, state}, %{msg: msg}) end)
+        message_extra(:msg, msg, auth, nick, state)
     end
 
     {:noreply, state}
@@ -388,9 +406,17 @@ defmodule Overdiscord.IRC.Bridge do
   def handle_info({:me, action, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     db_user_messaged(state, auth, action)
     if(user === "~Gregorius", do: handle_greg(action, state.client))
+
+    spawn(fn ->
+      Overdiscord.EventPipe.inject({chan, auth, state}, %{
+        action: action,
+        msg: "#{nick} #{action}"
+      })
+    end)
+
     action = convert_message_to_discord(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}", label: "State")
-    Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
+    # Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
     dispatch_msg("#{nick} #{action}")
     message_extra(:me, action, auth, chan, state)
     {:noreply, state}

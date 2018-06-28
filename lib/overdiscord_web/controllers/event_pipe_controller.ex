@@ -90,7 +90,7 @@ defmodule Overdiscord.Web.EventPipeController do
       args = List.wrap(args),
       true <-
         try do
-          if module.__info__(:functions)[function] === length(args) + 2 do
+          if Enum.member?(module.__info__(:functions), {function, length(args) + 2}) do
             true
           else
             {:error, "#{module}.#{function} at arity #{length(args) + 2} does exist"}
@@ -111,7 +111,7 @@ defmodule Overdiscord.Web.EventPipeController do
         IO.inspect({:ERROR, reason}, label: :HookCreate)
 
         conn
-        |> put_flash(:error, reason)
+        |> put_flash(:error, "Error at: " <> reason)
         |> render(:index, hooks: EventPipe.get_hooks())
     end
   end
