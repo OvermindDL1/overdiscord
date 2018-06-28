@@ -11,3 +11,15 @@ defimplEx Console, :console, for: Overdiscord.Auth do
     }
   end
 end
+
+defimplEx ConsoleNamed, {:console, name} when is_binary(name), for: Overdiscord.Auth do
+  def to_auth({:console, name}) do
+    %Overdiscord.Auth.AuthData{
+      server: :console,
+      location: "<CONSOLE>",
+      username: "<CONSOLE>",
+      nickname: name,
+      permissions: fn _ -> true end
+    }
+  end
+end

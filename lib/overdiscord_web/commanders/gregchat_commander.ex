@@ -4,14 +4,6 @@ defmodule Overdiscord.Web.GregchatCommander do
 
   @msgs "#greg-irc-messages"
 
-  # Place your event handlers here
-  #
-  # defhandler button_clicked(socket, sender) do
-  #   set_prop socket, "#output_div", innerHTML: "Clicked the button!"
-  # end
-  #
-  # Place you callbacks here
-  #
   onload(:page_loaded)
 
   def page_loaded(socket) do
@@ -31,12 +23,12 @@ defmodule Overdiscord.Web.GregchatCommander do
   end
 
   defhandler send_body(socket, %{params: %{"send_body" => body}}) do
-    # {:ok, event_auth} = Account.to_event_auth(socket)
+    {:ok, event_auth} = Account.to_event_auth(socket)
     {:ok, name} = Account.get_name(socket)
     IO.puts("Sending message from `#{name}` at Web:  #{body}")
-    Alchemy.Client.send_message(Overdiscord.IRC.Bridge.alchemy_channel(), "**#{name}:** #{body}")
-    Overdiscord.IRC.Bridge.send_msg(name, body)
-    # Overdiscord.EventPipe.inject(event_auth, %{msg: body})
+    #Alchemy.Client.send_message(Overdiscord.IRC.Bridge.alchemy_channel(), "**#{name}:** #{body}")
+    #Overdiscord.IRC.Bridge.send_msg(name, body)
+    Overdiscord.EventPipe.inject(event_auth, %{msg: body})
     set_prop(socket, "#send_body", value: "")
   end
 end

@@ -74,76 +74,44 @@ defmodule Overdiscord.EventPipe do
 
     Storage.get(hooks_db, :list_sorted, @hooks_key)
     |> Enum.each(fn {_priority, matcher, extra_matches, module, function, args} ->
-      case matcher_data |> IO.inspect(label: inspect(matcher)) do
-        # TODO:  This does not match, manually match...  >.<
-        ^matcher ->
-          extra_matches
-          |> Enum.all?(fn
-            {:permissions, permissions} ->
-              Enum.all?(List.wrap(permissions), &auth.permissions.(&1))
+      if deep_match(matcher, matcher_data) do
+        extra_matches
+        |> Enum.all?(fn
+          {:permissions, permissions} ->
+            Enum.all?(List.wrap(permissions), &auth.permissions.(&1))
 
-            {:msg, :equals, equals} ->
-              event_data[:msg] == equals
+          {:msg, :equals, equals} ->
+            event_data[:msg] == equals
 
-            {:msg, :contains, contains} ->
-              event_data[:msg] && String.contains?(event_data[:msg], contains)
+          {:msg, :contains, contains} ->
+            event_data[:msg] && String.contains?(event_data[:msg], contains)
 
-            {:msg, :starts_with, starts} ->
-              event_data[:msg] && String.starts_with?(event_data[:msg], starts)
+          {:msg, :starts_with, starts} ->
+            event_data[:msg] && String.starts_with?(event_data[:msg], starts)
 
-            {:msg, :regex, _original, regex} ->
-              event_data[:msg] && event_data[:msg] =~ regex
-          end)
-          |> if do
-            try do
-              apply(module, function, arg ++ args) || false
-            rescue
-              exc ->
-                IO.inspect({matcher, module, function, args, exc}, label: "HookException")
-                IO.puts(Exception.message(exc))
-                :error
-            catch
-              error ->
-                IO.inspect({matcher, module, function, args, error}, label: "HookError")
-                :error
-            end
-          else
-            nil
+          {:msg, :regex, _original, regex} ->
+            event_data[:msg] && event_data[:msg] =~ regex
+        end)
+        |> if do
+          try do
+            apply(module, function, arg ++ args) || false
+          rescue
+            exc ->
+              IO.inspect({matcher, module, function, args, exc}, label: "HookException")
+              IO.puts(Exception.message(exc))
+              :error
+          catch
+            error ->
+              IO.inspect({matcher, module, function, args, error}, label: "HookError")
+              :error
           end
-
-        _ ->
+        else
           nil
+        end
+      else
+        nil
       end
     end)
-
-    process_hooks(hooks_db, :all, arg)
-    process_hooks(hooks_db, {:server, auth.server}, arg)
-    process_hooks(hooks_db, {:server_location, auth.server, auth.location}, arg)
-    process_hooks(hooks_db, {:username, auth.username}, arg)
-    process_hooks(hooks_db, {:nickname, auth.nickname}, arg)
-
-    process_hooks(
-      hooks_db,
-      {:server_location_user, auth.server, auth.location, auth.username},
-      arg
-    )
-
-    process_hooks(
-      hooks_db,
-      {:server_location_nick, auth.server, auth.location, auth.nickname},
-      arg
-    )
-
-    process_hooks(
-      hooks_db,
-      {:server_location_user_nick, auth.server, auth.location, auth.username, auth.nickname},
-      arg
-    )
-
-    case event_data do
-      %{msg: _msg} ->
-        process_hooks(hooks_db, :msg, arg)
-    end
   rescue
     exc ->
       IO.inspect(exc, label: "EventPipeException")
@@ -178,5 +146,39 @@ defmodule Overdiscord.EventPipe do
       _, canceled ->
         canceled
     end)
+  end
+
+  def deep_match(smaller, larger)
+
+  def deep_match(same, same) do
+    true
+  end
+
+  def deep_match(equals, equall) when equals == equall do
+    true
+  end
+
+  def deep_match(%{} = smaller, %{} = larger) do
+    Enum.all?(smaller, &deep_match(elem(&1, 1), Map.get(larger, elem(&1, 0), nil)))
+  end
+
+  def deep_match([], []) do
+    true
+  end
+
+  def deep_match([s | smaller], [l | larger]) do
+    deep_match(s, l) and deep_match(smaller, larger)
+  end
+
+  def deep_match({}, {}) do
+    true
+  end
+
+  def deep_match(smaller, larger) when tuple_size(smaller) === tuple_size(larger) do
+    Enum.all?(0..(tuple_size(smaller) - 1), &deep_match(elem(smaller, &1), elem(larger, &1)))
+  end
+
+  def deep_match(_smaller, _larger) do
+    false
   end
 end

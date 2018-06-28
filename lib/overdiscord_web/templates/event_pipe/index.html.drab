@@ -57,14 +57,18 @@
     <thead>
       <tr>
         <th>Priority</th>
+        <th>Matcher</th>
+        <th>Extra Matchers</th>
         <th>Hook Module</th>
         <th>Hook Function</th>
         <th>Hook Arguments</th>
       </tr>
     </thead>
-    <tbody><%= for {priority, _matcher, _extra_matchers, hook_module, hook_function, hook_args} <- @hooks do %>
+    <tbody><%= for {priority, matcher, extra_matchers, hook_module, hook_function, hook_args} <- @hooks do %>
       <tr>
         <td><%= inspect priority %></td>
+        <td><%= inspect matcher %></td>
+        <td><%= inspect extra_matchers %></td>
         <td><%= inspect hook_module %></td>
         <td><%= inspect hook_function %></td>
         <td><%= for {arg, idx} <- Enum.with_index(hook_args) do %>
