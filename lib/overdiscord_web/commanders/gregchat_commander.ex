@@ -26,8 +26,9 @@ defmodule Overdiscord.Web.GregchatCommander do
     {:ok, event_auth} = Account.to_event_auth(socket)
     {:ok, name} = Account.get_name(socket)
     IO.puts("Sending message from `#{name}` at Web:  #{body}")
-    #Alchemy.Client.send_message(Overdiscord.IRC.Bridge.alchemy_channel(), "**#{name}:** #{body}")
-    #Overdiscord.IRC.Bridge.send_msg(name, body)
+
+    # Alchemy.Client.send_message(Overdiscord.IRC.Bridge.alchemy_channel(), "**#{name}:** #{body}")
+    # Overdiscord.IRC.Bridge.send_msg(name, body)
     Overdiscord.EventPipe.inject(event_auth, %{msg: body})
     set_prop(socket, "#send_body", value: "")
   end

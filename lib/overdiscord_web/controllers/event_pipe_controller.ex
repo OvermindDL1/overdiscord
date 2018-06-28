@@ -116,6 +116,17 @@ defmodule Overdiscord.Web.EventPipeController do
     end
   end
 
+  def delete_hook(conn, %{"priority" => priority} = _params) do
+    {:ok, priority, ""} =
+      ElixirParse.parse(priority, allowed_types: %{integer: true, float: true})
+
+    case EventPipe.delete_hooks(&(elem(&1, 0) == priority)) do
+      0 -> put_flash(conn, :warn, "No matching hooks found to delete.")
+      c -> put_flash(conn, :info, "#{c} hooks deleted")
+    end
+    |> redirect(to: Routes.event_pipe_path(conn, :index))
+  end
+
   defp put_if_valid(map, params, key, valid \\ ElixirParse.default_allowed_types()) do
     value = params[to_string(key)]
 

@@ -22,7 +22,8 @@ defmodule Overdiscord.Web.Router do
 
     get("/", EventPipeController, :index)
     get("/history", EventPipeController, :history)
-    post("/new", EventPipeController, :new_hook)
+    post("/new_hook", EventPipeController, :new_hook)
+    delete("/delete_hook/:priority", EventPipeController, :delete_hook)
   end
 
   scope "/", Overdiscord.Web do

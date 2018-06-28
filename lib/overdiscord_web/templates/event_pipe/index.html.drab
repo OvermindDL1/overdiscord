@@ -62,6 +62,7 @@
         <th>Hook Module</th>
         <th>Hook Function</th>
         <th>Hook Arguments</th>
+        <th></th>
       </tr>
     </thead>
     <tbody><%= for {priority, matcher, extra_matchers, hook_module, hook_function, hook_args} <- @hooks do %>
@@ -71,9 +72,8 @@
         <td><%= inspect extra_matchers %></td>
         <td><%= inspect hook_module %></td>
         <td><%= inspect hook_function %></td>
-        <td><%= for {arg, idx} <- Enum.with_index(hook_args) do %>
-          <%= idx %>: <%= inspect arg %><% end %>
-        </td>
+        <td><%= inspect hook_args %></td>
+        <td><%= link "Delete", to: Routes.event_pipe_path(@conn, :delete_hook, priority), method: :delete, data: [confirm: "Are you sure?"], class: "btn btn-danger btn-xs" %></td>
       </tr><% end %>
     </tbody>
   </table>    

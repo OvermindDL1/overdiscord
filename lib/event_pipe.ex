@@ -6,6 +6,7 @@ defmodule Overdiscord.EventPipe do
 
   @hooks_db :eventpipe
   @hooks_key :hooks
+  @hooks_backup_key :hooks_backup
   @history 50
 
   def add_hook(
@@ -24,6 +25,22 @@ defmodule Overdiscord.EventPipe do
       @hooks_key,
       {priority, matcher, extra_matches, module, function, args}
     )
+  end
+
+  def delete_hooks(hooks_db \\ @hooks_db, cb) do
+    hooks_db = Storage.get_db(hooks_db)
+    old_hooks = Storage.get(hooks_db, :list, @hooks_key)
+
+    Storage.put(
+      hooks_db,
+      :list_truncated,
+      @hooks_backup_key,
+      {{NaiveDateTime.utc_now(), old_hooks}, 20, 10}
+    )
+
+    Storage.put(hooks_db, :list_remove_many, @hooks_key, cb)
+    # Not a transaction, but eh until postgresql or so...
+    length(old_hooks) - length(Storage.get(hooks_db, :list, @hooks_key))
   end
 
   # def add_hook(hooks_db \\ @hooks_db, hook_type, priority, module, function, args) do

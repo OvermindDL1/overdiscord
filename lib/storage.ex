@@ -115,6 +115,26 @@ defmodule Overdiscord.Storage do
     {:leveldb, db}
   end
 
+  def put({:leveldb, db}, :list_remove_many, key, values) do
+    key = :erlang.term_to_binary({:list, key})
+
+    oldValues =
+      case Exleveldb.get(db, key) do
+        :not_found -> []
+        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+      end
+
+    values =
+      cond do
+        is_list(values) -> Enum.reject(oldValues, &Enum.member?(values, &1))
+        is_function(values, 1) -> Enum.reject(oldValues, values)
+      end
+
+    values = :erlang.term_to_binary(values)
+    Exleveldb.put(db, key, values)
+    {:leveldb, db}
+  end
+
   def put({:leveldb, db}, :list_sorted_add, key, value) do
     key = :erlang.term_to_binary({:list, key})
 
