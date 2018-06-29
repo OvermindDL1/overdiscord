@@ -77,6 +77,7 @@ defmodule Overdiscord.SiteParser do
                      nil <- get_summary_title_and_description(doc, opts),
                      # nil <- get_summary_opengraph(doc, opts),
                      nil <- get_summary_first_paragraph(doc, opts),
+                     nil <- get_summary_title(doc, opts),
                      do: nil
             end
         end
@@ -143,6 +144,14 @@ defmodule Overdiscord.SiteParser do
           true -> "#{title} : #{description}"
         end
     end
+  end
+
+  defp get_summary_title(doc, _opts) do
+    with(
+      te when te != nil <- Meeseeks.one(doc, css("title")),
+      t when t != nil and t != "" <- Meeseeks.own_text(te) |> get_first_line_trimmed(),
+      do: t
+    )
   end
 
   defp get_summary_title_and_description(doc, _opts) do
