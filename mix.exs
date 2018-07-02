@@ -54,7 +54,7 @@ defmodule Overdiscord.Mixfile do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:cowboy, "~> 1.0"},
-      {:drab, "~> 0.8.3"}
+      {:drab, "~> 0.9.0"}
     ]
   end
 end
