@@ -46,7 +46,7 @@ defmodule Overdiscord.Mixfile do
       {:quantum, "~> 2.2"},
       {:timex, "~> 3.2"},
       {:luerl, "~> 0.3"},
-      {:protocol_ex, "~> 0.3.12"},
+      {:protocol_ex, "~> 0.4.0"},
       {:phoenix, github: "phoenixframework/phoenix", override: true},
       {:phoenix_pubsub, "~> 1.0"},
       {:phoenix_html, "~> 2.11"},
