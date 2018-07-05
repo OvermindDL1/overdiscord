@@ -558,7 +558,7 @@ defmodule Overdiscord.IRC.Bridge do
       "<@80832726017511424>"
     )
     |> String.replace(~R/\bSuperCoder79\b/i, "SuperCoder79")
-    |> String.replace(~R/\bandyafw\b|\bandy\b/i, "<@179586256752214016>")
+    |> String.replace(~R/\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
     |> String.replace(~R/\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
     |> to_string()
   end

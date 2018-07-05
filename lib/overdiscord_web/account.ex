@@ -1,7 +1,7 @@
 defmodule Overdiscord.Web.Account do
   import Plug.Conn
   import Phoenix.Controller
-  import Overdiscord.Web.Gettext
+  #import Overdiscord.Web.Gettext
 
   @session_tag :authentication
   def session_tag(), do: @session_tag
@@ -78,7 +78,7 @@ defmodule Overdiscord.Web.Account do
 
   def authenticated?(env), do: authenticated?(get_authentication(env))
 
-  def can?({:console, args}, perms) do
+  def can?({:console, args}, _perms) do
     case args[:perms] do
       # TODO:  Add permissions...
       nil ->

@@ -13,7 +13,7 @@ defmodule Overdiscord.Hooks.CommandParser do
     nil
   end
 
-  def handle_command(auth, %{msg: msg} = event_data, prefix) do
+  def handle_command(auth, %{msg: msg} = _event_data, prefix) do
     prefix_size = byte_size(prefix)
     <<_skip::binary-size(prefix_size), msg::binary>> = msg
 
@@ -29,7 +29,7 @@ defmodule Overdiscord.Hooks.CommandParser do
 
   defp call_command(auth, cmd, unparsed_args, opts)
 
-  defp call_command(auth, "echo", unparsed_args, opts) do
+  defp call_command(auth, "echo", unparsed_args, _opts) do
     if auth.permissions.({:cmd, "echo"}) do
       Overdiscord.EventPipe.inject(auth, %{msg: unparsed_args, reply?: true})
     else

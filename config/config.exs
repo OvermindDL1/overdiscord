@@ -88,7 +88,14 @@ config :drab, pubsub: Overdiscord.Web.PubSub
 
 config :phoenix, :template_engines, drab: Drab.Live.Engine
 
-config :drab,
+#config :drab,
+#  main_phoenix_app: :overdiscord,
+#  endpoint: Overdiscord.Web.Endpoint,
+#  pubsub: Overdiscord.Web.PubSub,
+#  js_socket_constructor: "PhoenixSocket"
+
+config :drab, Overdiscord.Web.Endpoint,
+  otp_app: :overdiscord,
   main_phoenix_app: :overdiscord,
   endpoint: Overdiscord.Web.Endpoint,
   pubsub: Overdiscord.Web.PubSub,

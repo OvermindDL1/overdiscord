@@ -16,7 +16,9 @@ defmodule Overdiscord.Hooks.Bridge do
     nil
   end
 
-  def reply(auth, %{reply?: true} = event_data, to, _opts \\ []) do
+  def reply(auth, event_data, to, opts \\ [])
+
+  def reply(auth, %{reply?: true} = event_data, to, _opts) do
     Enum.map(to, fn
       {module, func, args} -> apply(module, func, [auth, event_data, auth.location | args])
       _ -> nil
