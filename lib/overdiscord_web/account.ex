@@ -1,7 +1,7 @@
 defmodule Overdiscord.Web.Account do
   import Plug.Conn
   import Phoenix.Controller
-  #import Overdiscord.Web.Gettext
+  # import Overdiscord.Web.Gettext
 
   @session_tag :authentication
   def session_tag(), do: @session_tag
