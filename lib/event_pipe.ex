@@ -83,7 +83,7 @@ defmodule Overdiscord.EventPipe do
 
   def inject(possible_auth, event_data) when is_map(event_data) do
     auth = Overdiscord.Auth.to_auth(possible_auth)
-    # IO.inspect({possible_auth, auth, event_data}, label: :EventInjection)
+    IO.inspect({possible_auth, auth, event_data}, label: :EventInjection)
 
     hooks_db = Storage.get_db(@hooks_db)
     matcher_data = %{auth: auth, event_data: event_data}
@@ -134,6 +134,8 @@ defmodule Overdiscord.EventPipe do
     exc ->
       IO.inspect(exc, label: "EventPipeException")
       IO.puts(Exception.message(exc))
+      IO.inspect(__STACKTRACE__, label: :Stacktrace)
+      IO.puts(Exception.format_banner(:error, exc, __STACKTRACE__))
       :error
   catch
     error ->

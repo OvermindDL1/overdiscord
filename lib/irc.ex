@@ -1793,6 +1793,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   defp is_admin(auth)
   defp is_admin(%{user: "~uid16796"}), do: true
+  defp is_admin(%{host: "id-16796." <> _}), do: true
   defp is_admin(%{host: "ltea-" <> _, user: "~Gregorius"}), do: true
 
   defp is_admin(auth),

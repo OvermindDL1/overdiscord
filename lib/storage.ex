@@ -6,6 +6,8 @@ defmodule Overdiscord.Storage do
 
   use GenServer
 
+  @safe []
+
   ## Interface
 
   def get_db(name) when is_atom(name) or is_binary(name) do
@@ -65,7 +67,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> []
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     values = [value | oldValues]
@@ -80,7 +82,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> []
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     count = Enum.count(oldValues)
@@ -106,7 +108,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> []
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     values = Enum.filter(oldValues, &(&1 != value))
@@ -121,7 +123,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> []
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     values =
@@ -141,7 +143,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> []
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     values = Enum.sort([value | oldValues])
@@ -156,7 +158,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> []
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     values = Enum.filter(oldValues, &(&1 != value))
@@ -171,7 +173,7 @@ defmodule Overdiscord.Storage do
     oldValues =
       case Exleveldb.get(db, key) do
         :not_found -> %{}
-        {:ok, values} -> :erlang.binary_to_term(values, [:safe])
+        {:ok, values} -> :erlang.binary_to_term(values, @safe)
       end
 
     values = Map.put(oldValues, value, 1)
@@ -188,7 +190,7 @@ defmodule Overdiscord.Storage do
         {:leveldb, db}
 
       {:ok, values} ->
-        oldValues = :erlang.binary_to_term(values, [:safe])
+        oldValues = :erlang.binary_to_term(values, @safe)
         values = Map.delete(oldValues, value)
         values = :erlang.term_to_binary(values)
         Exleveldb.put(db, key, values)
@@ -230,7 +232,7 @@ defmodule Overdiscord.Storage do
 
     case Exleveldb.get(db, key) do
       :not_found -> default
-      {:ok, value} -> :erlang.binary_to_term(value, [:safe])
+      {:ok, value} -> :erlang.binary_to_term(value, @safe)
     end
   end
 
@@ -240,7 +242,7 @@ defmodule Overdiscord.Storage do
 
     case Exleveldb.get(db, key) do
       :not_found -> default
-      {:ok, value} -> :erlang.binary_to_term(value, [:safe])
+      {:ok, value} -> :erlang.binary_to_term(value, @safe)
     end
   end
 
@@ -252,7 +254,7 @@ defmodule Overdiscord.Storage do
         default
 
       {:ok, values} ->
-        values = :erlang.binary_to_term(values, [:safe])
+        values = :erlang.binary_to_term(values, @safe)
         Map.keys(values)
     end
   end

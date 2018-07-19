@@ -1,6 +1,8 @@
 defmodule Overdiscord.Commands do
   use Alchemy.Events
 
+  alias Overdiscord.Storage
+
   def send_event(auth, event_data, to)
 
   def send_event(auth, %{msg: msg}, to) do
@@ -14,6 +16,7 @@ defmodule Overdiscord.Commands do
   end
 
   def on_msg(%{author: %{id: "336892378759692289"}}) do
+    discord_activity(:discord)
     # Ignore bot message
     :ok
   end
@@ -25,6 +28,7 @@ defmodule Overdiscord.Commands do
           content: content
         } = msg
       ) do
+    discord_activity(:discord)
     # TODO:  Definitely need to make a protocol to parse these event_data's out!
     # TODO:  Remove this `!` stuff to manage all messages so it is fully configurable
     if not String.starts_with?(content, "!"),
@@ -56,10 +60,12 @@ defmodule Overdiscord.Commands do
   end
 
   def on_msg(msg) do
+    discord_activity(:discord)
     IO.inspect(msg, label: :UnhandledMsg)
   end
 
   def on_msg_edit(%{author: nil, channel_id: "320192373437104130", embeds: [_ | _] = embeds}) do
+    discord_activity(:discord)
     IO.inspect(embeds, label: :BotEdit)
 
     Enum.map(embeds, fn %{title: title, description: description} ->
@@ -73,6 +79,7 @@ defmodule Overdiscord.Commands do
   end
 
   def on_msg_edit(%{author: %{id: "336892378759692289"}} = msg) do
+    discord_activity(:discord)
     # We were edited, likely by discord itself, pass that information back?
     IO.inspect(msg, label: :BotEdited)
   end
@@ -84,6 +91,8 @@ defmodule Overdiscord.Commands do
           content: content
         } = msg
       ) do
+    discord_activity(:discord)
+
     case content do
       "!" <> _ -> :ok
       _content -> on_msg(%{msg | author: %{author | username: "#{username}{EDIT}"}})
@@ -91,6 +100,7 @@ defmodule Overdiscord.Commands do
   end
 
   def on_msg_edit(msg) do
+    discord_activity(:discord)
     IO.inspect(msg, label: :EditedMsg)
   end
 
@@ -102,6 +112,7 @@ defmodule Overdiscord.Commands do
           user: %{bot: false, id: id}
         } = _presence
       ) do
+    discord_activity(:discord)
     # IO.inspect(presence, label: "Presence")
 
     case Alchemy.Cache.member(guild_id, id) do
@@ -126,6 +137,7 @@ defmodule Overdiscord.Commands do
   end
 
   def on_presence_update(_presence) do
+    discord_activity(:discord)
     # Unhandled presence
     # IO.inspect(_presence, label: "Unhandled Presence")
     :ok
@@ -157,6 +169,28 @@ defmodule Overdiscord.Commands do
   end
 
   ## Helpers
+
+  @db :discord
+
+  def discord_activity(server_name) do
+    db = Storage.get_db(@db)
+    now = NaiveDateTime.utc_now()
+    Storage.put(db, :kv, :activity, now)
+    Storage.put(db, :kv, {:activity, server_name}, now)
+  end
+
+  def check_dead() do
+    now = NaiveDateTime.utc_now()
+    last_activity = Storage.get(@db, :kv, :activity, now)
+
+    if NaiveDateTime.compare(last_activity, NaiveDateTime.add(now, -60 * 60, :seconds)) == :lt do
+      IO.puts("===============================")
+
+      IO.inspect(
+        {:DiscordMaybeDead, last_activity, now, NaiveDateTime.add(now, -60 * 60, :seconds)}
+      )
+    end
+  end
 
   def get_msg_content_processed(%Alchemy.Message{channel_id: channel_id, content: content} = msg) do
     case Alchemy.Cache.guild_id(channel_id) do
