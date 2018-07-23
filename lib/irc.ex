@@ -517,7 +517,7 @@ defmodule Overdiscord.IRC.Bridge do
     ExIrc.Client.stop!(state.client)
   end
 
-  defp convert_message_to_discord(msg) do
+  def convert_message_to_discord(msg) do
     msg =
       Regex.replace(~R/([^<]|^)\B@!?([a-zA-Z0-9]+)\b/, msg, fn full, pre, username ->
         down_username = String.downcase(username)

@@ -6,6 +6,7 @@ defmodule Overdiscord.Commands do
   def send_event(auth, event_data, to)
 
   def send_event(auth, %{msg: msg}, to) do
+    msg = Overdiscord.IRC.Bridge.convert_message_to_discord(msg)
     # Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")
     Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
   end
