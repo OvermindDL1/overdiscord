@@ -9,6 +9,12 @@ defmodule Overdiscord.Web.Endpoint do
     only: ~w(css fonts images js favicon.ico robots.txt)
   )
 
+  plug(GhWebhookPlug,
+    secret: "tGEDjaBUxqUYSkOVRMN/H4K8Nb7JdVcx5PlCdO4/n/+1k+Cl76BeI7I65+Xsax0T",
+    path: "/github/webhook",
+    action: {Overdiscord.Web.GithubWebhookController, :webhook}
+  )
+
   socket("/socket", Overdiscord.Web.UserSocket, websocket: true, longpoll: false)
 
   if code_reloading? do

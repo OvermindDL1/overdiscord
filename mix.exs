@@ -54,7 +54,8 @@ defmodule Overdiscord.Mixfile do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:cowboy, "~> 1.0"},
-      {:drab, "~> 0.9.0"}
+      {:drab, "~> 0.9.0"},
+      {:gh_webhook_plug, "~> 0.0.5"}
     ]
   end
 end

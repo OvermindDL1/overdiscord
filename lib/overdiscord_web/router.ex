@@ -36,8 +36,7 @@ defmodule Overdiscord.Web.Router do
     get("/gregchat", GregchatController, :index)
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", Overdiscord.Web do
-  #   pipe_through :api
-  # end
+  scope "/api", Overdiscord.Web do
+    pipe_through [:api]
+  end
 end

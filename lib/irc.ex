@@ -760,7 +760,7 @@ defmodule Overdiscord.IRC.Bridge do
             |> Enum.sort_by(fn
               {%dts{} = datetime, _host, _chan, _nick, _msg}
               when dts in [NaiveDateTime, DateTime] ->
-                Timex.to_unix(datetime) - now
+                Timex.to_unix(datetime)
 
               {unixtime, _host, _chan, _nick, _msg} ->
                 unixtime
@@ -779,7 +779,7 @@ defmodule Overdiscord.IRC.Bridge do
                   [search_string] ->
                     case Integer.parse(search_string) do
                       {idx, ""} -> Enum.at(msgs, idx)
-                      _ -> Enum.find(msgs, &String.contains?(elem(&1, 4), search_string))
+                      _ -> Enum.find(msgs, &Enum.any?(List.wrap(elem(&1, 4)), fn m -> String.contains?(m, search_string) end))
                     end
                     |> case do
                       nil ->
@@ -860,7 +860,7 @@ defmodule Overdiscord.IRC.Bridge do
                       end
                   end
 
-                formatted = Timex.format!(time, "{ISO:Extended}")
+                formatted = Timex.format!(time, "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}") # "{ISO:Extended}")
                 trange = Timex.to_unix(time) - now
 
                 "Next pending delay message from #{nick} set to appear at #{formatted}, (#{trange}s away): #{
@@ -1019,7 +1019,8 @@ defmodule Overdiscord.IRC.Bridge do
                           seconds = Timex.to_unix(datetime)
                           send_in = if(seconds - now < 0, do: 0, else: seconds * 1000)
                           Process.send_after(self(), :poll_delay_msgs, send_in)
-                          "Delayed message set to occur at #{datetime}"
+                          formatted = Timex.format!(datetime, "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}")
+                          "Delayed message set to occur at #{formatted}"
                         end
                       end
                   end
