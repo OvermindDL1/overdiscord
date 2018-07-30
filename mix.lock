@@ -29,7 +29,7 @@
   "html_entities": {:hex, :html_entities, "0.4.0", "f2fee876858cf6aaa9db608820a3209e45a087c5177332799592142b50e89a6b", [:mix], []},
   "httpoison": {:hex, :httpoison, "1.2.0", "2702ed3da5fd7a8130fc34b11965c8cfa21ade2f232c00b42d96d4967c39a3a3", [:mix], [{:hackney, "~> 1.8", [hex: :hackney, optional: false]}]},
   "idna": {:hex, :idna, "5.1.1", "cbc3b2fa1645113267cc59c760bafa64b2ea0334635ef06dbac8801e42f7279c", [:rebar3], [{:unicode_util_compat, "0.3.1", [hex: :unicode_util_compat, optional: false]}]},
-  "inch_ex": {:hex, :inch_ex, "0.5.6", "418357418a553baa6d04eccd1b44171936817db61f4c0840112b420b8e378e67", [:mix], [{:poison, "~> 1.5 or ~> 2.0 or ~> 3.0", [hex: :poison, optional: false]}]},
+  "inch_ex": {:hex, :inch_ex, "1.0.0", "18496a900ca4b7542a1ff1159e7f8be6c2012b74ca55ac70de5e805f14cdf939", [:mix], [{:poison, "~> 1.5 or ~> 2.0 or ~> 3.0", [hex: :poison, repo: "hexpm", optional: false]}], "hexpm"},
   "jason": {:hex, :jason, "1.1.1", "d3ccb840dfb06f2f90a6d335b536dd074db748b3e7f5b11ab61d239506585eb2", [:mix], [{:decimal, "~> 1.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm"},
   "kcl": {:hex, :kcl, "1.0.5", "d4abd1eefefc7b2a03e407d16ad60618f93d32cfe3a025baa37505a5811056ac", [:mix], [{:curve25519, ">= 1.0.2", [hex: :curve25519, optional: false]}, {:ed25519, "~> 1.2", [hex: :ed25519, optional: false]}, {:poly1305, "~> 1.0", [hex: :poly1305, optional: false]}, {:salsa20, "~> 1.0", [hex: :salsa20, optional: false]}]},
   "luerl": {:hex, :luerl, "0.3.1", "5412807630aac1aaf59ffe5a1bc09259c447b4faeb1d3fe2d4ef41b87676cb04", [:rebar3], []},
