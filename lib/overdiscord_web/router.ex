@@ -37,6 +37,6 @@ defmodule Overdiscord.Web.Router do
   end
 
   scope "/api", Overdiscord.Web do
-    pipe_through [:api]
+    pipe_through([:api])
   end
 end

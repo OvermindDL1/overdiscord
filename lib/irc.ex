@@ -778,8 +778,16 @@ defmodule Overdiscord.IRC.Bridge do
 
                   [search_string] ->
                     case Integer.parse(search_string) do
-                      {idx, ""} -> Enum.at(msgs, idx)
-                      _ -> Enum.find(msgs, &Enum.any?(List.wrap(elem(&1, 4)), fn m -> String.contains?(m, search_string) end))
+                      {idx, ""} ->
+                        Enum.at(msgs, idx)
+
+                      _ ->
+                        Enum.find(
+                          msgs,
+                          &Enum.any?(List.wrap(elem(&1, 4)), fn m ->
+                            String.contains?(m, search_string)
+                          end)
+                        )
                     end
                     |> case do
                       nil ->
@@ -860,7 +868,10 @@ defmodule Overdiscord.IRC.Bridge do
                       end
                   end
 
-                formatted = Timex.format!(time, "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}") # "{ISO:Extended}")
+                # "{ISO:Extended}")
+                formatted =
+                  Timex.format!(time, "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}")
+
                 trange = Timex.to_unix(time) - now
 
                 "Next pending delay message from #{nick} set to appear at #{formatted}, (#{trange}s away): #{
@@ -1019,7 +1030,13 @@ defmodule Overdiscord.IRC.Bridge do
                           seconds = Timex.to_unix(datetime)
                           send_in = if(seconds - now < 0, do: 0, else: seconds * 1000)
                           Process.send_after(self(), :poll_delay_msgs, send_in)
-                          formatted = Timex.format!(datetime, "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}")
+
+                          formatted =
+                            Timex.format!(
+                              datetime,
+                              "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}"
+                            )
+
                           "Delayed message set to occur at #{formatted}"
                         end
                       end
