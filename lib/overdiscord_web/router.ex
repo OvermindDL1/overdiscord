@@ -38,5 +38,7 @@ defmodule Overdiscord.Web.Router do
 
   scope "/api", Overdiscord.Web do
     pipe_through([:api])
+
+    post("/forum", CallbackController, :forum)
   end
 end
