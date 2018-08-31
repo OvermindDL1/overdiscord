@@ -449,7 +449,8 @@ defmodule Overdiscord.IRC.Bridge do
       "_User `#{user}` with nick `#{nick}` joined from `#{host}`_",
       chan,
       state.client,
-      irc: false
+      irc: false,
+      discord: :simple
     )
 
     case db_get(state, :kv, {:joined, nick}) do
