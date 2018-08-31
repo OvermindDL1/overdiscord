@@ -439,10 +439,17 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:joined, chan, %{host: host, nick: nick, user: user}}, state) do
+  def handle_info({:joined, "#gt-dev" = chan, %{host: host, nick: nick, user: user}}, state) do
     IO.inspect(
       "#{chan}: User `#{user}` with nick `#{nick}` joined from `#{host}`",
       label: "State"
+    )
+
+    send_msg_both(
+      "_User `#{user}` with nick `#{nick}` joined from `#{host}`_",
+      chan,
+      state.client,
+      irc: false
     )
 
     case db_get(state, :kv, {:joined, nick}) do
@@ -472,8 +479,16 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:parted, chan, %{host: host, nick: nick, user: user}}, state) do
+  def handle_info({:parted, "#gt-dev" = chan, %{host: host, nick: nick, user: user}}, state) do
     IO.inspect("#{chan}: User `#{user}` with nick `#{nick} parted from `#{host}`", label: "State")
+
+    send_msg_both(
+      "_User `#{user}` with nick `#{nick}` parted from `#{host}`_",
+      chan,
+      state.client,
+      irc: false
+    )
+
     db_put(state, :kv, {:parted, user}, NaiveDateTime.utc_now())
     {:noreply, state}
   end
@@ -482,6 +497,13 @@ defmodule Overdiscord.IRC.Bridge do
     IO.inspect(
       "User `#{user}` with nick `#{nick}` at host `#{host}` quit with message: #{msg}",
       label: "State"
+    )
+
+    send_msg_both(
+      "_User `#{user}` with nick `#{nick}` quit from `#{host}`_",
+      "#gt-dev",
+      state.client,
+      irc: false
     )
 
     # state = put_in(state.meta.logouts[host], :erlang.now())
