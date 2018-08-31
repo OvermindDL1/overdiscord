@@ -486,7 +486,8 @@ defmodule Overdiscord.IRC.Bridge do
       "_User `#{user}` with nick `#{nick}` parted from `#{host}`_",
       chan,
       state.client,
-      irc: false
+      irc: false,
+      discord: :simple
     )
 
     db_put(state, :kv, {:parted, user}, NaiveDateTime.utc_now())
@@ -503,7 +504,8 @@ defmodule Overdiscord.IRC.Bridge do
       "_User `#{user}` with nick `#{nick}` quit from `#{host}`_",
       "#gt-dev",
       state.client,
-      irc: false
+      irc: false,
+      discord: :simple
     )
 
     # state = put_in(state.meta.logouts[host], :erlang.now())
