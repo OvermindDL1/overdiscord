@@ -430,7 +430,7 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info({:unrecognized, type, msg}, state) do
+  def handle_info({:unrecognized, type, msg}, state) when type not in ["KICK"] do
     IO.inspect(
       "Unrecognized Message with type #{inspect(type)} and msg of: #{inspect(msg)}",
       label: "Fallthrough"
@@ -510,6 +510,27 @@ defmodule Overdiscord.IRC.Bridge do
     )
 
     # state = put_in(state.meta.logouts[host], :erlang.now())
+    {:noreply, state}
+  end
+
+  def handle_info(
+        {:unrecognized, "KICK",
+         %{
+           args: [chan, nick, msg],
+           cmd: "KICK",
+           host: _kicker_host,
+           nick: kicker,
+           user: _kicker_user
+         }},
+        state
+      ) do
+    IO.inspect("User `#{kicker}` kicked `#{nick}` with message: #{msg}")
+
+    send_msg_both("User `#{kicker}` kicked `#{nick}` with message: #{msg}", chan, state.client,
+      irc: false,
+      discord: :simple
+    )
+
     {:noreply, state}
   end
 
