@@ -446,7 +446,7 @@ defmodule Overdiscord.IRC.Bridge do
     )
 
     send_msg_both(
-      "_User `#{user}` with nick `#{nick}` joined from `#{host}`_",
+      "_`#{user}` as `#{nick}` has joined the room_",
       chan,
       state.client,
       irc: false,
@@ -484,7 +484,7 @@ defmodule Overdiscord.IRC.Bridge do
     IO.inspect("#{chan}: User `#{user}` with nick `#{nick} parted from `#{host}`", label: "State")
 
     send_msg_both(
-      "_User `#{user}` with nick `#{nick}` parted from `#{host}`_",
+      "_`#{user}` as `#{nick}` parted from the room_",
       chan,
       state.client,
       irc: false,
@@ -502,7 +502,7 @@ defmodule Overdiscord.IRC.Bridge do
     )
 
     send_msg_both(
-      "_User `#{user}` with nick `#{nick}` quit from `#{host}`_",
+      "_`#{user}` as `#{nick}` quit from the server: #{msg}_",
       "#gt-dev",
       state.client,
       irc: false,
@@ -526,7 +526,7 @@ defmodule Overdiscord.IRC.Bridge do
       ) do
     IO.inspect("User `#{kicker}` kicked `#{nick}` with message: #{msg}")
 
-    send_msg_both("User `#{kicker}` kicked `#{nick}` with message: #{msg}", chan, state.client,
+    send_msg_both("`#{kicker}` kicked `#{nick}` with message: #{msg}", chan, state.client,
       irc: false,
       discord: :simple
     )
