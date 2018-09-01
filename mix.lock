@@ -1,7 +1,7 @@
 %{
   "alchemy": {:hex, :discord_alchemy, "0.6.1", "944bf8d96aacc91977ba1a9eae9a28cc09d8c9606000c9aec329517f372f7ffa", [:mix], [{:gen_stage, "~> 0.11", [hex: :gen_stage, optional: false]}, {:httpoison, "~> 0.13.0", [hex: :httpoison, optional: false]}, {:kcl, "~> 1.0.0", [hex: :kcl, optional: false]}, {:poison, "~> 3.0", [hex: :poison, optional: false]}, {:porcelain, "~> 2.0", [hex: :porcelain, optional: false]}, {:websocket_client, "~> 1.2", [hex: :websocket_client, optional: false]}]},
   "bunt": {:hex, :bunt, "0.2.0", "951c6e801e8b1d2cbe58ebbd3e616a869061ddadcc4863d0a2182541acae9a38", [:mix], []},
-  "cachex": {:hex, :cachex, "3.0.2", "1351caa4e26e29f7d7ec1d29b53d6013f0447630bbf382b4fb5d5bad0209f203", [:mix], [{:eternal, "~> 1.2", [hex: :eternal, optional: false]}, {:unsafe, "~> 1.0", [hex: :unsafe, optional: false]}]},
+  "cachex": {:hex, :cachex, "3.0.3", "4e2d3e05814a5738f5ff3903151d5c25636d72a3527251b753f501ad9c657967", [:mix], [{:eternal, "~> 1.2", [hex: :eternal, repo: "hexpm", optional: false]}, {:unsafe, "~> 1.0", [hex: :unsafe, repo: "hexpm", optional: false]}], "hexpm"},
   "certifi": {:hex, :certifi, "2.3.1", "d0f424232390bf47d82da8478022301c561cf6445b5b5fb6a84d49a9e76d2639", [:rebar3], [{:parse_trans, "3.2.0", [hex: :parse_trans, optional: false]}]},
   "chacha20": {:hex, :chacha20, "1.0.1", "4f5eb7ec715b63f90b5f152b91cc490382753ad08827960017c0660c8e30f613", [:mix], []},
   "combine": {:hex, :combine, "0.10.0", "eff8224eeb56498a2af13011d142c5e7997a80c8f5b97c499f84c841032e429f", [:mix], []},
