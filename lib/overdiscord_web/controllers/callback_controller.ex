@@ -93,4 +93,160 @@ defmodule Overdiscord.Web.CallbackController do
     IO.inspect(params, label: :ForumEvent_Unhandled)
     text(conn, "unhandled")
   end
+
+  def gitea(conn, params) do
+    # TODO:  Maybe support more secrets?
+    secret_env = unquote(to_string(:os.getenv('WEBHOOK_GITEA_SECRET')))
+
+    if params["secret"] === secret_env do
+      gitea_handler(conn, List.first(get_req_header(conn, "x-gitea-event")), params)
+    else
+      ### TEMPORARY until gitea fixes their bug:  https://github.com/go-gitea/gitea/issues/4732
+      case List.first(get_req_header(conn, "x-gitea-event")) do
+        "issue_comment" = event ->
+          gitea_handler(conn, event, params)
+
+        _ ->
+          IO.inspect(%{secret_env: secret_env, params: params},
+            label: :GiteaEvent_Unhandled_Secret
+          )
+
+          conn
+          |> put_status(:forbidden)
+          |> text("unhandled_secret")
+      end
+
+      ### TEMPORARY end
+      # IO.inspect(%{secret_env: secret_env, params: params}, label: :GiteaEvent_Unhandled_Secret)
+      # conn
+      # |> put_status(:forbidden)
+      # |> text("unhandled_secret")
+    end
+
+    # :simple_msg
+  end
+
+  defp send_event(name, msg) do
+    msg = String.trim(msg)
+    Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: msg})
+  end
+
+  defp gitea_handler(conn, "OFF-issues", %{
+         "action" => action,
+         "issue" => issue,
+         "repository" => repo
+       })
+       when action in ["opened", "closed"] do
+    {body, _} = String.split_at(to_string(issue["body"]), 240)
+
+    body =
+      if action == "closed" do
+        ""
+      else
+        "> " <> String.replace(body, "\n", "> ") <> "\n"
+      end
+
+    msg = """
+    #{issue["user"]["username"]} #{action} an issue: #{issue["title"]}
+    #{body}#{repo["html_url"]}/issues/#{issue["id"]}
+    """
+
+    send_event("GIT:#{repo["full_name"]}", msg)
+    text(conn, "ok")
+  end
+
+  defp gitea_handler(conn, "OFF-pull_request", %{
+         "action" => action,
+         "pull_request" => pr,
+         "repository" => repo,
+         "sender" => sender
+       })
+       when action in ["opened", "closed"] do
+    {body, _} = String.split_at(to_string(pr["body"]), 240)
+
+    {body, action} =
+      if action == "closed" do
+        action =
+          if pr['merged_by'] == nil do
+            "#{sender["username"]} closed"
+          else
+            "#{pr["merged_by"]["username"]} merged"
+          end
+
+        {"", action}
+      else
+        {"> " <> String.replace(body, "\n", "> ") <> "\n", "#{pr["user"]["username"]} #{action}"}
+      end
+
+    msg = """
+    #{action} a pull request to #{pr["base"]["label"]}: #{pr["title"]}
+    #{body}#{pr["html_url"]}
+    """
+
+    send_event("GIT:#{repo["full_name"]}", msg)
+    text(conn, "ok")
+  end
+
+  defp gitea_handler(conn, "OFF-issue_comment", %{
+         "action" => action,
+         "comment" => comment,
+         "issue" => issue,
+         "repository" => repo
+       })
+       when action in ["created"] do
+    {body, _} = String.split_at(to_string(comment["body"]), 240)
+    body = "> " <> String.replace(body, "\n", "> ")
+    type = if(issue["pull_request"] == nil, do: "issue", else: "pull request")
+
+    msg = """
+    #{comment["user"]["username"]} left a comment on the #{issue["state"]} #{type} titled: #{
+      issue["title"]
+    }
+    #{body}
+    #{comment["html_url"]}
+    """
+
+    send_event("GIT:#{repo["full_name"]}", msg)
+    text(conn, "ok")
+  end
+
+  defp gitea_handler(conn, event, params) do
+    IO.inspect({event, params}, label: :GiteaEvent_Unhandled)
+
+    conn
+    |> put_status(:not_implemented)
+    |> text("unhandled")
+  end
+
+  def concourse(conn, %{
+      "ATC_EXTERNAL_URL" => _atc_external_url,
+      "BUILD_ID" => build_id,
+      "BUILD_JOB_NAME" => build_job_name,
+      "BUILD_NAME" => build_name,
+      "BUILD_PIPELINE_NAME" => build_pipeline_name,
+      "BUILD_STATUS" => build_status,
+      "BUILD_TEAM_NAME" => build_team_name,
+      "BUILD_URL" => build_url,
+      "TOKEN" => token
+    }) do
+    token_hash = Base.encode16(:crypto.hash(:sha256, token))
+
+    if token_hash == "B212E7E563537303AE40BBAAB5D1C0534B3600410BF73F04C8CF12BB937AB441" do
+      msg = "PURELY FOR TESTING: Build #{build_name} #{build_status}: #{build_url}"
+      send_event("CI:#{build_team_name}/#{build_pipeline_name}/#{build_job_name}", msg)
+      text(conn, "ok")
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> text("unauthenticated token")
+    end
+  end
+
+  def off_concourse(conn, params) do
+    IO.inspect(params, label: :Concourse)
+
+    conn
+    # |> put_status(:not_implemented)
+    |> text("unhandled")
+  end
 end

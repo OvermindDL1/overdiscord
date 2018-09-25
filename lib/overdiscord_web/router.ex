@@ -40,5 +40,7 @@ defmodule Overdiscord.Web.Router do
     pipe_through([:api])
 
     post("/forum", CallbackController, :forum)
+    post("/webhook/gitea", CallbackController, :gitea)
+    post("/webhook/concourse", CallbackController, :concourse)
   end
 end

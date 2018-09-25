@@ -103,6 +103,9 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_cast({:send_event, auth, event_data, to}, state) do
     case event_data do
+      %{simple_msg: msg} ->
+        handle_cast({:send_msg, auth.nickname, {:simple, msg}, to}, state)
+
       %{msg: msg} ->
         handle_cast({:send_msg, auth.nickname, msg, to}, state)
 
@@ -116,6 +119,12 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_cast({:send_msg, nick, msg, chan}, state) do
+    {is_simple_msg, msg} =
+      case msg do
+        msg when is_binary(msg) -> {false, msg}
+        {:simple, msg} -> {true, msg}
+      end
+
     nick_color = get_name_color(state, nick)
     db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
     # |> Enum.flat_map(&split_at_irc_max_length/1)
@@ -134,7 +143,11 @@ defmodule Overdiscord.IRC.Bridge do
     end)
 
     Process.sleep(200)
-    message_extra(:send_msg, msg, nick, "#gt-dev", state)
+
+    if not is_simple_msg do
+      message_extra(:send_msg, msg, nick, "#gt-dev", state)
+    end
+
     {:noreply, state}
   end
 
@@ -194,12 +207,12 @@ defmodule Overdiscord.IRC.Bridge do
                 case db_get(state, :kv, {:presence_yt, nick}) do
                   ^summary ->
                     if game == nil and not db_get(state, :kv, {:presence_yt_clear, nick}) do
-                      ExIrc.Client.msg(
-                        state.client,
-                        :privmsg,
-                        "#gt-dev",
-                        "> #{nick} is no longer playing or streaming"
-                      )
+                      # ExIrc.Client.msg(
+                      #  state.client,
+                      #  :privmsg,
+                      #  "#gt-dev",
+                      #  "> #{nick} is no longer playing or streaming"
+                      # )
 
                       db_put(state, :kv, {:presence_yt_clear, nick}, true)
                     end
