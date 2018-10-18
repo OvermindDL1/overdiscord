@@ -34,7 +34,7 @@ defmodule Overdiscord.Mixfile do
       {:inch_ex, "~> 1.0", only: [:docs, :dev, :test]},
       {:credo, "~> 0.8", only: [:docs, :dev, :test]},
       {:alchemy, "~> 0.6.1", hex: :discord_alchemy},
-      {:httpoison, "~> 1.3.0", override: true},
+      {:httpoison, "~> 1.4.0", override: true},
       {:exirc, "~> 1.0"},
       {:sizeable, "~> 1.0"},
       {:meeseeks, "~> 0.9"},
