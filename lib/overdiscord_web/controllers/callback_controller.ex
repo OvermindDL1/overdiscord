@@ -3,6 +3,10 @@ defmodule Overdiscord.Web.CallbackController do
 
   import Meeseeks.CSS
 
+  alias Overdiscord.Storage
+
+  @db :callback
+
   def forum(conn, %{
         "post" => %{
           "username" => username,
@@ -130,29 +134,50 @@ defmodule Overdiscord.Web.CallbackController do
     msg = String.trim(msg)
     Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: msg})
   end
+
   defp send_cmd(name, cmd) do
     Overdiscord.EventPipe.inject({:system, name}, %{irc_cmd: cmd})
   end
 
   defp gitea_handler(conn, "push", %{
-        "ref" => "refs/heads/master",
-        "compare_url" => compare_url,
-        "commits" => commits = [_|_],
-        "repository" => repo,
-        "pusher" => pusher
-      }) do
-    commit_msgs =
-      commits
-      |> Enum.map(&"#{&1["author"]["name"]}: #{&1["message"]}")
-      |> Enum.join("\n")
+         "ref" => "refs/heads/master",
+         "before" => before,
+         "after" => after_,
+         "compare_url" => compare_url,
+         "commits" => commits = [_ | _],
+         "repository" => repo,
+         "pusher" => pusher
+       }) do
+    commit_msgs = Enum.map(commits, &"#{&1["author"]["name"]}: #{&1["message"]}")
 
-    msg = """
-    #{pusher["full_name"]} pushed commits, see diff at: #{compare_url}
-    #{commit_msgs}
-    """ |> String.trim()
+    if repo["full_name"] == "GregTech-6/GT6" do
+      prior =
+        Storage.get(@db, :kv, repo["full_name"], %{
+          before: before,
+          after: after_,
+          commit_msgs: commit_msgs
+        })
 
-    IO.inspect("GIT:#{repo["full_name"]}: #{msg}", label: :GiteaPush)
-    send_event("GIT:#{repo["full_name"]}", msg)
+      updated = %{
+        prior
+        | after: after_,
+          commit_msgs: [:lists.reverse(commit_msgs) | prior[:commit_msgs]]
+      }
+
+      Storage.put(@db, :kb, repo["full_name"], updated)
+    end
+
+    commit_msgs = Enum.join(commit_msgs, "\n")
+
+    msg =
+      """
+      #{pusher["full_name"]} pushed commits, see diff at: #{compare_url}
+      #{commit_msgs}
+      """
+      |> String.trim()
+
+    IO.puts("GIT:#{repo["full_name"]}: #{msg}")
+    # send_event("GIT:#{repo["full_name"]}", msg)
     text(conn, "ok")
   end
 
@@ -271,13 +296,36 @@ defmodule Overdiscord.Web.CallbackController do
           # TODO Detect both snapshot and latest version times to see which is more recent...
           case build_type do
             "RELEASE" ->
-              send_event(title, "New Release #{build_version}:  https://gregtech.overminddl1.com/downloads/gregtech_1.7.10/index.html#Downloads")
+              send_event(
+                title,
+                "New Release #{build_version}:  https://gregtech.overminddl1.com/downloads/gregtech_1.7.10/index.html#Downloads"
+              )
+
               send_cmd(title, "?screenshot")
               send_cmd(title, "?changelog")
               :undefined
 
             "SNAPSHOT" ->
-              "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/"
+              msgs =
+                case Storage.get(@db, :kv, "GregTech-6/GT6", nil) do
+                  nil ->
+                    ""
+
+                  %{before: before, after: after_, commit_msgs: commit_msgs} ->
+                    diff_url =
+                      "https://git.gregtech.overminddl1.com/GregTech-6/GT6/compare/#{before}...#{
+                        after_
+                      }"
+
+                    commit_msgs = commit_msgs |> :lists.reverse() |> Enum.join("\n")
+                    "See diff at: #{diff_url}\n#{commit_msgs}"
+                end
+
+              Storage.delete(@db, :kb, "GregTech-6/GT6")
+
+              "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/\n#{
+                msgs
+              }"
 
             _ ->
               "Build #{build_name} of #{build_type} succeeded: https://gregtech.overminddl1.com/secretdownloads/"
