@@ -32,7 +32,7 @@ defmodule Overdiscord.Commands do
     discord_activity(:discord)
     # TODO:  Definitely need to make a protocol to parse these event_data's out!
     # TODO:  Remove this `!` stuff to manage all messages so it is fully configurable
-    if not String.starts_with?(content, "!"),
+    if not String.starts_with?(content, "!") and content != "",
       do: Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
 
     case content do
