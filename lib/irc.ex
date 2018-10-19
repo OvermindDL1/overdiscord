@@ -109,8 +109,14 @@ defmodule Overdiscord.IRC.Bridge do
       %{msg: msg} ->
         handle_cast({:send_msg, auth.nickname, msg, to}, state)
 
+      %{irc_cmd: cmd} ->
+        IO.inspect(%{event_data: event_data, auth: auth, to: to}, label: :IRCEventDataCmd)
+        message_extra(:msg, cmd, auth.nickname, "#gt-dev", state)
+        {:noreply, state}
+
       _ ->
-        IO.inspect(event_data, label: :IRCUnhandledEventData)
+        IO.inspect(%{event_data: event_data, auth: auth, to: to}, label: :IRCUnhandledEventData)
+        {:noreply, state}
     end
   end
 
@@ -219,27 +225,35 @@ defmodule Overdiscord.IRC.Bridge do
 
                   old_summary ->
                     if game != nil do
-                      ExIrc.Client.msg(
-                        state.client,
-                        :privmsg,
-                        "#gt-dev",
-                        "> #{nick} is now playing/streaming: #{game} (was last: #{oldpresence})"
-                      )
+                      # ExIrc.Client.msg(
+                      #  state.client,
+                      #  :privmsg,
+                      #  "#gt-dev",
+                      #  "> #{nick} is now playing/streaming: #{game} (was last: #{oldpresence})"
+                      # )
 
-                      ExIrc.Client.msg(
-                        state.client,
-                        :privmsg,
-                        "#gt-dev",
-                        "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
-                      )
+                      # ExIrc.Client.msg(
+                      #  state.client,
+                      #  :privmsg,
+                      #  "#gt-dev",
+                      #  "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
+                      # )
 
                       [simple_summary | _] = String.split(summary, " - YouTube Gaming :")
                       IO.inspect(simple_summary, label: "BearUpdate")
-                      send_msg_both(simple_summary, "#gt-dev", state, discord: false)
+                      # send_msg_both(simple_summary, "#gt-dev", state, discord: false)
+                      send_msg_both(
+                        "Bear989 is now playing/streaming at https://gaming.youtube.com/c/aBear989/live #{
+                          simple_summary
+                        }",
+                        "#gt-dev",
+                        state,
+                        discord: false
+                      )
 
                       [old_summary | _] = String.split(old_summary, " - YouTube Gaming :")
                       IO.inspect(old_summary, label: "BearOldUpdate")
-                      send_msg_both("Old: " <> old_summary, "#gt-dev", state, discord: false)
+                      # send_msg_both("Old: " <> old_summary, "#gt-dev", state, discord: false)
 
                       db_put(state, :kv, {:presence_yt_clear, nick}, false)
                     end
@@ -416,6 +430,9 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
+  def handle_info() do
+  end
+
   def handle_info({:me, action, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     db_user_messaged(state, auth, action)
     if(user === "~Gregorius", do: handle_greg(action, state.client))
@@ -458,13 +475,15 @@ defmodule Overdiscord.IRC.Bridge do
       label: "State"
     )
 
-    send_msg_both(
-      "_`#{user}` as `#{nick}` has joined the room_",
-      chan,
-      state.client,
-      irc: false,
-      discord: :simple
-    )
+    if not Enum.member?(["~peter", "~retep998"], user) do
+      send_msg_both(
+        "_`#{user}` as `#{nick}` has joined the room_",
+        chan,
+        state.client,
+        irc: false,
+        discord: :simple
+      )
+    end
 
     case db_get(state, :kv, {:joined, nick}) do
       nil ->
@@ -514,13 +533,15 @@ defmodule Overdiscord.IRC.Bridge do
       label: "State"
     )
 
-    send_msg_both(
-      "_`#{user}` as `#{nick}` quit from the server: #{msg}_",
-      "#gt-dev",
-      state.client,
-      irc: false,
-      discord: :simple
-    )
+    if not Enum.member?(["~peter", "~retep998"], user) do
+      send_msg_both(
+        "_`#{user}` as `#{nick}` quit from the server: #{msg}_",
+        "#gt-dev",
+        state.client,
+        irc: false,
+        discord: :simple
+      )
+    end
 
     # state = put_in(state.meta.logouts[host], :erlang.now())
     {:noreply, state}
@@ -1049,7 +1070,10 @@ defmodule Overdiscord.IRC.Bridge do
                       12
 
                     # Greg
-                    %{host: "ltea-" <> _, user: "~Gregorius"} ->
+                    %{host: "ipservice-" <> _, user: "~Gregorius"} ->
+                      12
+
+                    %{host: "ltea-" <> _, use: "~Gregorius"} ->
                       12
 
                     # SuperCoder79
@@ -1120,6 +1144,9 @@ defmodule Overdiscord.IRC.Bridge do
                     12
 
                   # Greg
+                  %{host: "ipservice-" <> _, user: "~Gregorius"} ->
+                    12
+
                   %{host: "ltea-" <> _, user: "~Gregorius"} ->
                     12
 
@@ -1352,6 +1379,7 @@ defmodule Overdiscord.IRC.Bridge do
       "setphrase" => fn cmd, args, auth, chan, state ->
         case auth do
           %{host: "id-16796." <> _, user: "uid16796"} -> true
+          %{host: "ipservice-" <> _, user: "~Gregorius"} -> true
           %{host: "ltea-" <> _, user: "~Gregorius"} -> true
           _ -> false
         end
@@ -1871,6 +1899,7 @@ defmodule Overdiscord.IRC.Bridge do
   defp is_admin(auth)
   defp is_admin(%{user: "~uid16796"}), do: true
   defp is_admin(%{host: "id-16796." <> _}), do: true
+  defp is_admin(%{host: "ipservice-" <> _, user: "~Gregorius"}), do: true
   defp is_admin(%{host: "ltea-" <> _, user: "~Gregorius"}), do: true
 
   defp is_admin(auth),

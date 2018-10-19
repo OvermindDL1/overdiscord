@@ -16,11 +16,13 @@ defmodule Overdiscord.Commands.GT6 do
 
     # Remove the top message about how often the changelog is updated
     changelog =
-      String.split(changelog, "\r\n\r\n\r\n", trim: true)
+      changelog
+      |> String.replace("\r", "")
+      |> String.split("\n\n\n", trim: true)
       |> tl()
       |> Enum.map(fn version_entry ->
         version_entry
-        |> String.split("\r\n[", trum: true)
+        |> String.split("\n[", trum: true)
         |> case do
           [_] ->
             []

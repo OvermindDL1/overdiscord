@@ -130,6 +130,31 @@ defmodule Overdiscord.Web.CallbackController do
     msg = String.trim(msg)
     Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: msg})
   end
+  defp send_cmd(name, cmd) do
+    Overdiscord.EventPipe.inject({:system, name}, %{irc_cmd: cmd})
+  end
+
+  defp gitea_handler(conn, "push", %{
+        "ref" => "refs/heads/master",
+        "compare_url" => compare_url,
+        "commits" => commits = [_|_],
+        "repository" => repo,
+        "pusher" => pusher
+      }) do
+    commit_msgs =
+      commits
+      |> Enum.map(&"#{&1["author"]["name"]}: #{&1["message"]}")
+      |> Enum.join("\n")
+
+    msg = """
+    #{pusher["full_name"]} pushed commits, see diff at: #{compare_url}
+    #{commit_msgs}
+    """ |> String.trim()
+
+    IO.inspect("GIT:#{repo["full_name"]}: #{msg}", label: :GiteaPush)
+    send_event("GIT:#{repo["full_name"]}", msg)
+    text(conn, "ok")
+  end
 
   defp gitea_handler(conn, "OFF-issues", %{
          "action" => action,
@@ -218,22 +243,55 @@ defmodule Overdiscord.Web.CallbackController do
     |> text("unhandled")
   end
 
-  def concourse(conn, %{
-      "ATC_EXTERNAL_URL" => _atc_external_url,
-      "BUILD_ID" => build_id,
-      "BUILD_JOB_NAME" => build_job_name,
-      "BUILD_NAME" => build_name,
-      "BUILD_PIPELINE_NAME" => build_pipeline_name,
-      "BUILD_STATUS" => build_status,
-      "BUILD_TEAM_NAME" => build_team_name,
-      "BUILD_URL" => build_url,
-      "TOKEN" => token
-    }) do
+  def concourse(
+        conn,
+        %{
+          "ATC_EXTERNAL_URL" => _atc_external_url,
+          "BUILD_ID" => build_id,
+          "BUILD_JOB_NAME" => build_job_name,
+          "BUILD_NAME" => build_name,
+          "BUILD_PIPELINE_NAME" => build_pipeline_name,
+          "BUILD_STATUS" => build_status,
+          "BUILD_TEAM_NAME" => build_team_name,
+          "BUILD_URL" => build_url,
+          "BUILD_TYPE" => build_type,
+          "BUILD_VERSION" => build_version,
+          "TOKEN" => token
+        } = params
+      ) do
     token_hash = Base.encode16(:crypto.hash(:sha256, token))
 
+    IO.inspect(params, label: :ConcourseWebhook_Params)
+
     if token_hash == "B212E7E563537303AE40BBAAB5D1C0534B3600410BF73F04C8CF12BB937AB441" do
-      msg = "PURELY FOR TESTING: Build #{build_name} #{build_status}: #{build_url}"
-      send_event("CI:#{build_team_name}/#{build_pipeline_name}/#{build_job_name}", msg)
+      title = "CI:#{build_team_name}/#{build_pipeline_name}/#{build_job_name}"
+
+      case build_status do
+        "success" ->
+          # TODO Detect both snapshot and latest version times to see which is more recent...
+          case build_type do
+            "RELEASE" ->
+              send_event(title, "New Release #{build_version}:  https://gregtech.overminddl1.com/downloads/gregtech_1.7.10/index.html#Downloads")
+              send_cmd(title, "?screenshot")
+              send_cmd(title, "?changelog")
+              :undefined
+
+            "SNAPSHOT" ->
+              "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/"
+
+            _ ->
+              "Build #{build_name} of #{build_type} succeeded: https://gregtech.overminddl1.com/secretdownloads/"
+          end
+          |> case do
+            msg when is_binary(msg) -> send_event(title, msg)
+            _ -> :undefined
+          end
+
+        build_status ->
+          msg = "**Build #{build_name} #{build_status}:** #{build_url}"
+          send_event(title, msg)
+      end
+
       text(conn, "ok")
     else
       conn
