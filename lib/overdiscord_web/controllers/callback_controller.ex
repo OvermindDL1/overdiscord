@@ -155,16 +155,21 @@ defmodule Overdiscord.Web.CallbackController do
         Storage.get(@db, :kv, repo["full_name"], %{
           before: before,
           after: after_,
-          commit_msgs: commit_msgs
+          commit_msgs: []
         })
+
+      updated_commit_msgs =
+        (:lists.reverse(commit_msgs) ++ prior[:commit_msgs])
+        |> Enum.map(&String.replace(&1, ~r|[\n\r]|, " "))
+        |> Enum.filter(&(String.replace(&1, ~r|[\s\t]|, "") != ""))
 
       updated = %{
         prior
         | after: after_,
-          commit_msgs: [:lists.reverse(commit_msgs) | prior[:commit_msgs]]
+          commit_msgs: updated_commit_msgs
       }
 
-      Storage.put(@db, :kb, repo["full_name"], updated)
+      Storage.put(@db, :kv, repo["full_name"], updated)
     end
 
     commit_msgs = Enum.join(commit_msgs, "\n")
@@ -321,7 +326,7 @@ defmodule Overdiscord.Web.CallbackController do
                     "See diff at: #{diff_url}\n#{commit_msgs}"
                 end
 
-              Storage.delete(@db, :kb, "GregTech-6/GT6")
+              Storage.delete(@db, :kv, "GregTech-6/GT6")
 
               "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/\n#{
                 msgs
