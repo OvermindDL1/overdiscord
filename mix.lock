@@ -1,7 +1,7 @@
 %{
   "alchemy": {:hex, :discord_alchemy, "0.6.1", "944bf8d96aacc91977ba1a9eae9a28cc09d8c9606000c9aec329517f372f7ffa", [:mix], [{:gen_stage, "~> 0.11", [hex: :gen_stage, optional: false]}, {:httpoison, "~> 0.13.0", [hex: :httpoison, optional: false]}, {:kcl, "~> 1.0.0", [hex: :kcl, optional: false]}, {:poison, "~> 3.0", [hex: :poison, optional: false]}, {:porcelain, "~> 2.0", [hex: :porcelain, optional: false]}, {:websocket_client, "~> 1.2", [hex: :websocket_client, optional: false]}]},
   "bunt": {:hex, :bunt, "0.2.0", "951c6e801e8b1d2cbe58ebbd3e616a869061ddadcc4863d0a2182541acae9a38", [:mix], []},
-  "cachex": {:hex, :cachex, "3.1.0", "f32d5f46daa0bf2a9671fd851696cd59dc05ec9fe3b9260ba42b5cfe078d4cd2", [:mix], [{:eternal, "~> 1.2", [hex: :eternal, repo: "hexpm", optional: false]}, {:jumper, "~> 1.0", [hex: :jumper, repo: "hexpm", optional: false]}, {:unsafe, "~> 1.0", [hex: :unsafe, repo: "hexpm", optional: false]}], "hexpm"},
+  "cachex": {:hex, :cachex, "3.1.1", "588bcf48d20eddad7bff5172f5453090a071eba3191a03f51f779f88e3ac1900", [:mix], [{:eternal, "~> 1.2", [hex: :eternal, repo: "hexpm", optional: false]}, {:jumper, "~> 1.0", [hex: :jumper, repo: "hexpm", optional: false]}, {:unsafe, "~> 1.0", [hex: :unsafe, repo: "hexpm", optional: false]}], "hexpm"},
   "certifi": {:hex, :certifi, "2.4.2", "75424ff0f3baaccfd34b1214184b6ef616d89e420b258bb0a5ea7d7bc628f7f0", [:rebar3], [{:parse_trans, "~>3.3", [hex: :parse_trans, repo: "hexpm", optional: false]}], "hexpm"},
   "chacha20": {:hex, :chacha20, "1.0.1", "4f5eb7ec715b63f90b5f152b91cc490382753ad08827960017c0660c8e30f613", [:mix], []},
   "combine": {:hex, :combine, "0.10.0", "eff8224eeb56498a2af13011d142c5e7997a80c8f5b97c499f84c841032e429f", [:mix], []},
