@@ -53,7 +53,7 @@ defmodule Overdiscord.Mixfile do
       {:phoenix_live_reload, "~> 1.0", only: :dev},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
-      {:cowboy, "~> 1.0"},
+      {:cowboy, "~> 2.5"},
       # {:rustler, "~> 0.18.0", override: true},
       # {:html5ever, "~> 0.6.1"},
       {:floki, "~> 0.20.4"},
