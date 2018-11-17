@@ -430,9 +430,6 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_info() do
-  end
-
   def handle_info({:me, action, %{nick: nick, user: user} = auth, "#gt-dev" = chan}, state) do
     db_user_messaged(state, auth, action)
     if(user === "~Gregorius", do: handle_greg(action, state.client))
@@ -1389,7 +1386,7 @@ defmodule Overdiscord.IRC.Bridge do
                |> Enum.filter(&(&1 != "")) do
             [] ->
               send_msg_both(
-                "Format: #{cmd} <phrase-cmd> {phrase}\nIf the phraase is missing or blank then it deletes the command",
+                "Format: #{cmd} <phrase-cmd> {phrase}\nIf the phrase is missing or blank then it deletes the command",
                 chan,
                 state.client
               )

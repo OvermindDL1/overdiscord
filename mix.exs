@@ -41,7 +41,7 @@ defmodule Overdiscord.Mixfile do
       {:cachex, "~> 3.0"},
       {:exsync, "~> 0.2", only: :dev},
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
-      {:exleveldb, "~> 0.12"},
+      {:exleveldb, "~> 0.14"},
       {:gen_stage, "~> 0.13", override: true},
       {:quantum, "~> 2.2"},
       {:timex, "~> 3.2"},
@@ -54,6 +54,9 @@ defmodule Overdiscord.Mixfile do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:cowboy, "~> 1.0"},
+      # {:rustler, "~> 0.18.0", override: true},
+      # {:html5ever, "~> 0.6.1"},
+      {:floki, "~> 0.20.4"},
       {:drab, "~> 0.9.0"},
       {:gh_webhook_plug, "~> 0.0.5"}
     ]

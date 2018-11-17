@@ -85,6 +85,8 @@ config :phoenix, :stacktrace_depth, 20
 # Use Jason for JSON parsing in Phoenix and Ecto
 config :phoenix, :json_library, Jason
 
+# config :floki, :html_parser, Floki.HTMLParser.Html5ever
+
 config :drab, pubsub: Overdiscord.Web.PubSub
 
 config :phoenix, :template_engines, drab: Drab.Live.Engine

@@ -307,7 +307,7 @@ defmodule Overdiscord.Web.CallbackController do
               )
 
               send_cmd(title, "?screenshot")
-              send_cmd(title, "?changelog")
+              send_cmd(title, "?changelog ##{build_version}")
               :undefined
 
             "SNAPSHOT" ->
@@ -328,9 +328,13 @@ defmodule Overdiscord.Web.CallbackController do
 
               Storage.delete(@db, :kv, "GregTech-6/GT6")
 
-              "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/\n#{
+              "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/ @Bear989\n#{
                 msgs
-              }"
+                }"
+
+            "SCREENSHOT" ->
+              send_cmd(title, "?screenshot")
+              :undefined
 
             _ ->
               "Build #{build_name} of #{build_type} succeeded: https://gregtech.overminddl1.com/secretdownloads/"

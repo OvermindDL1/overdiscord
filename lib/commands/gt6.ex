@@ -8,10 +8,10 @@ defmodule Overdiscord.Commands.GT6 do
 
   Cogs.group("gt6")
 
-  def get_changelog() do
+  def get_changelog(version \\ "SNAPSHOT") do
     %{body: changelog, headers: headers} =
       HTTPoison.get!(
-        "http://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/changelog.txt"
+        "https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/#{version}/gregtech_1.7.10-#{version}-changelog.md"
       )
 
     # Remove the top message about how often the changelog is updated
@@ -69,8 +69,10 @@ defmodule Overdiscord.Commands.GT6 do
 
   def get_changelog_version(version \\ nil)
 
-  def get_changelog_version(nil) do
-    %{changesets: changesets, last_updated: last_updated} = get_changelog()
+  def get_changelog_version(nil), do: get_changelog_version("#SNAPSHOT")
+
+  def get_changelog_version("#"<>version) do
+    %{changesets: changesets, last_updated: last_updated} = get_changelog(version)
     {:ok, %{changesets: [List.first(changesets)], last_updated: last_updated}}
   end
 
