@@ -32,7 +32,7 @@ defmodule Overdiscord.Mixfile do
   defp deps do
     [
       {:inch_ex, "~> 1.0", only: [:docs, :dev, :test]},
-      {:credo, "~> 0.8", only: [:docs, :dev, :test]},
+      {:credo, "~> 1.0", only: [:docs, :dev, :test]},
       {:alchemy, "~> 0.6.1", hex: :discord_alchemy},
       {:httpoison, "~> 1.4.0", override: true},
       {:exirc, "~> 1.0"},
