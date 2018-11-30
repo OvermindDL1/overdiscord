@@ -15,7 +15,7 @@ defmodule Overdiscord do
       _ -> :ok
     end
 
-    # {:ok, client} = ExIrc.start_link!()
+    # {:ok, client} = ExIRC.start_link!()
 
     children = [
       worker(Overdiscord.Storage, []),

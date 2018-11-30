@@ -2,13 +2,13 @@ defmodule Overdiscord.Web.GithubWebhookController do
   use Overdiscord.Web, :controller
 
   def handle(
-        conn,
+        _conn,
         %{
           "action" => "created",
           "repository" => %{"html_url" => html_url},
           "issue" => %{"title" => title},
           "comment" => %{"url" => comment_url, "body" => comment_body}
-        } = data
+        } = _data
       ) do
     msg =
       "Issue #{html_url} - #{title}\n#{
@@ -18,7 +18,7 @@ defmodule Overdiscord.Web.GithubWebhookController do
     IO.puts("Webhook Issue Comment:\n#{msg}\n#{comment_url}")
   end
 
-  def handle(conn, nil = data) do
+  def handle(_conn, nil = data) do
     IO.inspect(data, label: :UNHANDLED_WEBHOOK, pretty: true, limit: :infinity)
   end
 

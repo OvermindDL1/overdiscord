@@ -1,6 +1,6 @@
 import ProtocolEx
 
-defimplEx IRC, {chan, %ExIrc.SenderInfo{}, %Overdiscord.IRC.Bridge.State{}} when is_binary(chan),
+defimplEx IRC, {chan, %ExIRC.SenderInfo{}, %Overdiscord.IRC.Bridge.State{}} when is_binary(chan),
   for: Overdiscord.Auth do
   def to_auth({chan, senderinfo, state}) do
     _host = senderinfo.host
