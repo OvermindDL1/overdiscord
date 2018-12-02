@@ -13,7 +13,8 @@ defmodule Overdiscord.IRC.Bridge do
               db: nil,
               meta: %{
                 logouts: %{},
-                whos: %{}
+                whos: %{},
+                caps: %{}
               }
   end
 
@@ -309,7 +310,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def handle_cast(:poll_delay_msgs, state) do
-    ExIRC.Client.who(state.client, "#gt-dev")
+    cap?(state, "away-notify") && ExIRC.Client.who(state.client, "#gt-dev")
     now = System.system_time(:second)
     nowdt = Timex.now()
     # users = ExIRC.Client.channel_users(state.client, "#gt-dev")
@@ -329,11 +330,12 @@ defmodule Overdiscord.IRC.Bridge do
         end
 
       {time, _host, chan, nick, msg} = rec when time <= now ->
-      if away?(state, "#gt-dev", nick: nick) == false do
-        IO.inspect(rec, label: :ProcessingDelay)
-        send_msg_both("#{nick}{Delay}: #{msg}", chan, state)
-        db_put(state, :set_remove, :delay_msgs, rec)
-end
+        if away?(state, "#gt-dev", nick: nick) == false do
+          IO.inspect(rec, label: :ProcessingDelay)
+          send_msg_both("#{nick}{Delay}: #{msg}", chan, state)
+          db_put(state, :set_remove, :delay_msgs, rec)
+        end
+
       s ->
         # IO.inspect(s, label: "Poll delay rest")
         s
@@ -376,16 +378,41 @@ end
   end
 
   def handle_info({:unrecognized, "CAP", %{args: [_self_nick, "LS", caps]}}, state) do
-    caps
-    |> String.split(" ")
-    |> IO.inspect(label: :IRCCapabilities)
-    |> Enum.each(fn
-      cap when cap in ["away-notify"] ->
-        IO.inspect(cap, label: :IRCRequestedCap)
-        ExIRC.Client.cmd(state.client, "CAP REQ #{cap}")
-      cap ->
-        IO.inspect(cap, label: :IRCUnhandledCapability)
-    end)
+    c =
+      caps
+      |> String.split(" ")
+      |> IO.inspect(label: :IRCCapabilities)
+      |> Enum.reduce(%{}, fn
+        cap, c when cap in ["away-notify"] ->
+          IO.inspect(cap, label: :IRCRequestedCap)
+          ExIRC.Client.cmd(state.client, "CAP REQ #{cap}")
+          Map.put(c, cap, :requested)
+
+        cap, c ->
+          IO.inspect(cap, label: :IRCUnhandledCapability)
+          Map.put(c, cap, false)
+      end)
+
+    state = %{state | meta: Map.put(state.meta, :caps, c)}
+
+    {:noreply, state}
+  end
+
+  def handle_info({:unrecognized, "CAP", %{args: [_self_nick, "ACK", cap]}}, state) do
+    state =
+      case state.meta[:caps] do
+        %{^cap => :requested} ->
+          IO.inspect(cap, label: :IRCCapabilityRequestSuccessful)
+          %{state | meta: put_in(state.meta, [:caps, cap], true)}
+
+        %{^cap => state} ->
+          IO.inspect({cap, state}, label: :IRCCapabilityUnrequestedSuccessful)
+          %{state | meta: put_in(state.meta, [:caps, cap], true)}
+
+        nil ->
+          IO.inspect(cap, label: :IRCCapabilityUnknownSuccessful)
+          state
+      end
 
     {:noreply, state}
   end
@@ -399,6 +426,7 @@ end
   def handle_info({:joined, "#gt-dev" = chan}, state) do
     state = %{state | ready: true}
     send_msg_both("#{state.nick} has re-joined", chan, state.client, irc: false)
+    ExIRC.Client.who(state.client, "#gt-dev")
     {:noreply, state}
   end
 
@@ -478,42 +506,109 @@ end
   end
 
   def handle_info({:who, channel, whos}, state) do
-    #IO.inspect(whos, label: :IRCWhos)
-    old = state.meta[:whos][channel]
+    # IO.inspect(whos, label: :IRCWhos)
+    oldm =
+      state.meta[:whos][channel]
+      |> case do
+        nil -> %{}
+        v -> v
+      end
+
     whosm = Map.new(whos, &{&1.nick, &1})
-    oldm = Map.new(whos, &{&1.nick, &1})
     now = NaiveDateTime.utc_now()
 
     # Joined
     whos
     |> List.wrap()
-    |> Enum.each(fn %{away?: a, nick: nick, user: user} ->
+    |> Enum.each(fn %{away?: a, nick: nick, user: user} = who ->
+      # IO.inspect({channel, who}, label: :IRCWho)
+
       case oldm[nick] do
-        nil -> # Joined, handled in actual join
-          #db_put(state, :kv, {:joined, nick}, now
-          #db_put(state, :kv, {:joined, user}, now
+        # Joined, handled in actual join
+        nil ->
+          # db_put(state, :kv, {:joined, nick}, now
+          # db_put(state, :kv, {:joined, user}, now
           :ok
-        %{away?: true} when a == false -> # No longer away?
-              db_put(state, :kv, {:joined, nick}, now)
-            db_put(state, :kv, {:joined, user}, now)
-        _ -> :ok # Rest is handled by the Parted section
-      end
-    end)
-    # Parted
-    old
-    |> List.wrap()
-    |> Enum.each(fn %{away?: b, nick: nick, user: user} ->
-      case whosm[nick] do
-        nil -> # Parted, handled in actual part
+
+        # No longer away?
+        %{away?: true} when a == false ->
+          db_put(state, :kv, {:joined, nick}, now)
+          db_put(state, :kv, {:joined, user}, now)
+          IO.inspect(nick, label: :IsNoLongerAway)
+
+          if(show_away?(who),
+            do:
+              send_msg_both("_`#{nick}` is no longer away_", channel, state.client,
+                irc: false,
+                discord: :simple
+              )
+          )
+
+        # Rest is handled by the Parted section
+        _ ->
           :ok
-        %{away?: false} when b == true -> # Is now away
-          db_put(state, :kv, {:parted, nick}, now)
-          db_put(state, :kv, {:parted, user}, now)
-        _ -> :ok # Rest is handled by the Joined section
       end
     end)
 
-    state = %{state | meta: put_in(state.meta, [:whos, channel], whos)}
+    # Parted
+    oldm
+    |> Map.values()
+    |> Enum.each(fn %{away?: b, nick: nick, user: user} = who ->
+      case whosm[nick] do
+        # Parted, handled in actual part
+        nil ->
+          :ok
+
+        # Is now away
+        %{away?: true} when b == false ->
+          db_put(state, :kv, {:parted, nick}, now)
+          db_put(state, :kv, {:parted, user}, now)
+          IO.inspect(nick, label: :IsNowAway)
+
+          if(show_away?(who),
+            do:
+              send_msg_both("_`#{nick}` is now away_", channel, state.client,
+                irc: false,
+                discord: :simple
+              )
+          )
+
+        # Rest is handled by the Joined section
+        _ ->
+          :ok
+      end
+    end)
+
+    state = %{state | meta: put_in(state.meta, [:whos, channel], whosm)}
+    {:noreply, state}
+  end
+
+  # ExIRC parser is a bit borked it seems...  An empty AWAY is actually "AWAY\r\n"...
+  def handle_info({:unrecognized, "AWAY" <> _, %{args: args, nick: nick}}, state) do
+    # away? = if(args == [], do: false, else: true)
+    #
+    # whos =
+    #  state.meta[:whos]
+    #  |> Enum.map(fn
+    #    {channel, %{^nick => who} = whos} ->
+    #      IO.inspect({channel, who}, label: :AwayFoundWho)
+    #      {channel, Map.put(whos, nick, %{who | away?: away?})}
+    #
+    #    {_channel, _whos} = kv ->
+    #      kv
+    #  end)
+    #  |> Map.new()
+
+    state.meta[:whos]
+    |> Enum.each(fn
+      {channel, %{^nick => _who}} ->
+        IO.inspect({channel, nick, args}, label: :AwayUpdate)
+        ExIRC.Client.who(state.client, "#gt-dev")
+
+      _ ->
+        :ok
+    end)
+
     {:noreply, state}
   end
 
@@ -891,7 +986,7 @@ end
 
           ["remove" | removeable] ->
             nic = auth.nick
-            #now = System.system_time(:second)
+            # now = System.system_time(:second)
 
             db_get(state, :set, :delay_msgs)
             |> Enum.filter(fn
@@ -1075,118 +1170,120 @@ end
                 timespec
               end
 
-              String.contains?(timespec, "T")
-              |> if do
-                timespec
-              else
-                today = Date.utc_today()
-                year = String.pad_leading(to_string(today.year), 4, "0")
-                month = String.pad_leading(to_string(today.month), 2, "0")
-                day = String.pad_leading(to_string(today.day), 2, "0")
-                "#{year}-#{month}-#{day}T#{timespec}"
-              end
-              |> Timex.parse("{ISO:Extended}")
-              |> case do
-                {:error, _reason} = err ->
-                  err
+            String.contains?(timespec, "T")
+            |> if do
+              timespec
+            else
+              today = Date.utc_today()
+              year = String.pad_leading(to_string(today.year), 4, "0")
+              month = String.pad_leading(to_string(today.month), 2, "0")
+              day = String.pad_leading(to_string(today.day), 2, "0")
+              "#{year}-#{month}-#{day}T#{timespec}"
+            end
+            |> Timex.parse("{ISO:Extended}")
+            |> case do
+              {:error, _reason} = err ->
+                err
 
-                {:ok, datetime} ->
-                  case relative do
-                    {:error, _reason} = err -> err
-                    {:ok, duration} -> {:ok, Timex.add(datetime, duration)}
-                  end
-              end
-              |> case do
-                {:error, _reason} = err ->
-                  err
+              {:ok, datetime} ->
+                case relative do
+                  {:error, _reason} = err -> err
+                  {:ok, duration} -> {:ok, Timex.add(datetime, duration)}
+                end
+            end
+            |> case do
+              {:error, _reason} = err ->
+                err
 
-                {:ok, %DateTime{} = timespec} ->
-                  {:ok, timespec}
+              {:ok, %DateTime{} = timespec} ->
+                {:ok, timespec}
 
-                {:ok, %NaiveDateTime{} = timespec} ->
-                  case db_get(state, :kv, {:setting, {:nick, auth.nick}, :timezone}) do
-                    nil ->
-                      {:ok, timespec}
+              {:ok, %NaiveDateTime{} = timespec} ->
+                case db_get(state, :kv, {:setting, {:nick, auth.nick}, :timezone}) do
+                  nil ->
+                    {:ok, timespec}
 
-                    timezone ->
-                      now = Timex.now(timezone)
-                      datetime = Map.merge(now, %{timespec | __struct__: DateTime})
-                      # if Timex.compare(datetime, now) < 0 do
-                      #   {:ok, Timex.add(datetime, Timex.Duration.from_days(1))}
-                      # else
-                      #   {:ok, datetime}
-                      # end
-                      {:ok, datetime}
-                  end
-              end
-              |> case do
-                {:error, reason} ->
-                  "Timespec error:  #{reason}"
+                  timezone ->
+                    now = Timex.now(timezone)
+                    datetime = Map.merge(now, %{timespec | __struct__: DateTime})
+                    # if Timex.compare(datetime, now) < 0 do
+                    #   {:ok, Timex.add(datetime, Timex.Duration.from_days(1))}
+                    # else
+                    #   {:ok, datetime}
+                    # end
+                    {:ok, datetime}
+                end
+            end
+            |> case do
+              {:error, reason} ->
+                "Timespec error:  #{reason}"
 
-                {:ok, datetime} ->
-                     case auth do
-                       # Local
-                       %{host: "6.ip-144-217-164.net"} -> 12
-                    # OvermindDL1
-                    %{host: "id-16796." <> _} ->
-                      12
+              {:ok, datetime} ->
+                case auth do
+                  # Local
+                  %{host: "6.ip-144-217-164.net"} ->
+                    12
 
-                    # Greg
-                    %{host: "ipservice-" <> _, user: "~Gregorius"} ->
-                      12
+                  # OvermindDL1
+                  %{host: "id-16796." <> _} ->
+                    12
 
-                    %{host: "ltea-" <> _, use: "~Gregorius"} ->
-                      12
+                  # Greg
+                  %{host: "ipservice-" <> _, user: "~Gregorius"} ->
+                    12
 
-                    # SuperCoder79
-                    %{host: "id-276919" <> _, user: "uid276919"} ->
-                      1
+                  %{host: "ltea-" <> _, use: "~Gregorius"} ->
+                    12
 
-                    _ ->
-                      0
-                  end
-                  |> case do
-                    0 ->
-                      if msg == [] do
-                        "Parsed timespec is for:  #{datetime}"
+                  # SuperCoder79
+                  %{host: "id-276919" <> _, user: "uid276919"} ->
+                    1
+
+                  _ ->
+                    0
+                end
+                |> case do
+                  0 ->
+                    if msg == [] do
+                      "Parsed timespec is for:  #{datetime}"
+                    else
+                      "You are not allowed to use this command"
+                    end
+
+                  limit ->
+                    if msg == [] do
+                      "Parsed timespec is for: #{datetime}"
+                    else
+                      now = System.system_time(:second)
+                      delays = db_get(state, :set, :delay_msgs)
+
+                      if limit <= Enum.count(delays, &(elem(&1, 1) == auth.host)) do
+                        "You have too many pending delayed messages, wait until some have elapsed: #{
+                          Enum.count(delays, &(elem(&1, 1) == auth.host))
+                        }"
                       else
-                        "You are not allowed to use this command"
-                      end
+                        db_put(
+                          state,
+                          :set_add,
+                          :delay_msgs,
+                          {datetime, auth.host, chan, auth.nick, msg}
+                        )
 
-                    limit ->
-                      if msg == [] do
-                        "Parsed timespec is for: #{datetime}"
-                      else
-                        now = System.system_time(:second)
-                        delays = db_get(state, :set, :delay_msgs)
+                        seconds = Timex.to_unix(datetime)
+                        send_in = if(seconds - now < 0, do: 0, else: seconds * 1000)
+                        Process.send_after(self(), :poll_delay_msgs, send_in)
 
-                        if limit <= Enum.count(delays, &(elem(&1, 1) == auth.host)) do
-                          "You have too many pending delayed messages, wait until some have elapsed: #{
-                            Enum.count(delays, &(elem(&1, 1) == auth.host))
-                          }"
-                        else
-                          db_put(
-                            state,
-                            :set_add,
-                            :delay_msgs,
-                            {datetime, auth.host, chan, auth.nick, msg}
+                        formatted =
+                          Timex.format!(
+                            datetime,
+                            "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}"
                           )
 
-                          seconds = Timex.to_unix(datetime)
-                          send_in = if(seconds - now < 0, do: 0, else: seconds * 1000)
-                          Process.send_after(self(), :poll_delay_msgs, send_in)
-
-                          formatted =
-                            Timex.format!(
-                              datetime,
-                              "{YYYY}-{M}-{D} {Mfull} {WDfull} {h24}:{m}:{s}{ss}"
-                            )
-
-                          "Delayed message set to occur at #{formatted}"
-                        end
+                        "Delayed message set to occur at #{formatted}"
                       end
-                  end
-              end
+                    end
+                end
+            end
 
           [timespec] ->
             case parse_relativetime_to_seconds(timespec) do
@@ -1202,7 +1299,9 @@ end
               {:ok, seconds} ->
                 case auth do
                   # Local
-                  %{host: "6.ip-144-217-164.net"} -> 12
+                  %{host: "6.ip-144-217-164.net"} ->
+                    12
+
                   # OvermindDL1
                   %{host: "id-16796." <> _} ->
                     12
@@ -1683,7 +1782,7 @@ end
   def check_greg_xkcd(state, xkcd_link, xkcd_title) do
     last_link = db_get(state, :kv, :xkcd_greg_link)
 
-    if last_link != xkcd_link and away?(state, "#gt-dev", "GregoriusTechneticies") do
+    if last_link != xkcd_link and away?(state, "#gt-dev", nick: "GregoriusTechneticies") == false do
       db_put(state, :kv, :xkcd_greg_link, xkcd_link)
       send_msg_both("#{xkcd_link} #{xkcd_title}", "#gt-dev", state.client)
       true
@@ -2032,16 +2131,47 @@ end
     end
   end
 
+  # nil -> Is not in room at all
+  # false -> Is in room and is not away (is here)
+  # true -> Is in room and is away (not here)
+  def away?(state, channel, [{:nick, nick}]) do
+    IO.inspect({channel, :nick, nick}, label: :AwayCheck)
+
+    get_in(state.meta, [:whos, channel, nick])
+    |> case do
+      nil -> nil
+      v -> Map.get(v, :away?)
+    end
+    |> IO.inspect(label: :AwayCheckResult)
+  end
+
   def away?(state, channel, [{key, value}]) do
     IO.inspect({channel, key, value}, label: :AwayCheck)
+
     state.meta[:whos][channel]
-    |> List.wrap()
+    |> case do
+      nil -> %{}
+      v -> v
+    end
+    |> Map.values()
     |> Enum.find(&(Map.get(&1, key) == value))
     |> case do
       nil -> nil
       v -> Map.get(v, :away?)
-       end
+    end
     |> IO.inspect(label: :AwayCheckResult)
+  end
+
+  def show_away?(%{operator?: true}), do: true
+  def show_away?(_), do: true
+
+  def cap?(state, cap) do
+    case state.meta[:caps][cap] do
+      nil -> false
+      false -> false
+      true -> true
+      :requested -> false
+    end
   end
 
   def get_format_code_color(color)

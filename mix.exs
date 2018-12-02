@@ -35,7 +35,7 @@ defmodule Overdiscord.Mixfile do
       {:credo, "~> 1.0", only: [:docs, :dev, :test]},
       {:alchemy, "~> 0.6.1", hex: :discord_alchemy},
       {:httpoison, "~> 1.4.0", override: true},
-      #{:exirc, "~> 1.0.1"},
+      # {:exirc, "~> 1.0.1"},
       {:exirc, github: "bitwalker/exirc"},
       {:sizeable, "~> 1.0"},
       {:meeseeks, "~> 0.9"},

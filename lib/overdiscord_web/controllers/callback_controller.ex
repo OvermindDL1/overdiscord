@@ -17,23 +17,23 @@ defmodule Overdiscord.Web.CallbackController do
           "topic_posts_count" => _topic_posts_count
         }
       }) do
-    #url =
+    # url =
     #  "https://forum.gregtech.overminddl1.com/t/#{topic_slug}/#{topic_id}/#{topic_posts_count}"
 
-    #doc = Meeseeks.parse(cooked |> IO.inspect())
+    # doc = Meeseeks.parse(cooked |> IO.inspect())
 
-    #body =
+    # body =
     #  doc
     #  |> Meeseeks.one(css("body"))
     #  |> Meeseeks.text()
 
-    #screenshot =
+    # screenshot =
     #  case Meeseeks.one(doc, css("img")) do
     #    nil -> ""
     #    elem -> "Screenshot: #{Meeseeks.attr(elem, "src")}"
     #  end
 
-    #body =
+    # body =
     #  case Meeseeks.all(doc, css("p")) do
     #    [_, _cap, change | _] = ps ->
     #      Enum.map(ps, fn p ->
@@ -330,7 +330,7 @@ defmodule Overdiscord.Web.CallbackController do
 
               "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/ @Bear989\n#{
                 msgs
-                }"
+              }"
 
             "SCREENSHOT" ->
               send_cmd(title, "?screenshot")
