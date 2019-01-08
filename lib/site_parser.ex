@@ -44,7 +44,10 @@ defmodule Overdiscord.SiteParser do
 
     case status_code do
       code when code >= 400 and code <= 499 ->
-        "Page does not exist"
+        # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
+        # specifically and return empty here otherwise the message, just returning empty for now
+        #"Page does not exist"
+        ""
 
       code when code >= 300 and code <= 399 ->
         IO.inspect(headers, label: :Headers)
@@ -62,6 +65,12 @@ defmodule Overdiscord.SiteParser do
           "bash.org/" <> _ ->
             get_bash_summary(Meeseeks.parse(body), opts)
 
+          "git.gregtech.overminddl1.com/" <> _ ->
+            get_git(Meeseeks.parse(body), url, ".L", opts)
+
+          "github.com/" <> _ ->
+            get_git(Meeseeks.parse(body), url, "#LC", opts)
+
           _unknown ->
             case :proplists.get_value("Content-Type", headers) do
               :undefined ->
@@ -71,14 +80,7 @@ defmodule Overdiscord.SiteParser do
                 nil
 
               _ ->
-                doc = Meeseeks.parse(body)
-
-                with nil <- get_summary_opengraph(doc, opts),
-                     nil <- get_summary_title_and_description(doc, opts),
-                     # nil <- get_summary_opengraph(doc, opts),
-                     nil <- get_summary_first_paragraph(doc, opts),
-                     nil <- get_summary_title(doc, opts),
-                     do: nil
+                get_general(Meeseeks.parse(body), opts)
             end
         end
 
@@ -88,12 +90,23 @@ defmodule Overdiscord.SiteParser do
     end
   rescue
     e ->
-      IO.inspect({:EXCEPTION, :get_summary, e})
+      IO.puts("EXCEPTION: get_summary")
+      IO.puts(Exception.format(:error, e, __STACKTRACE__))
       nil
   catch
     e ->
-      IO.inspect({:CRASH, :get_summary, e})
-      nil
+      IO.puts("THROWN: get_summary")
+    IO.puts(Exception.format(:error, e, __STACKTRACE__))
+    nil
+  end
+
+  defp get_general(doc, opts) do
+    with nil <- get_summary_opengraph(doc, opts),
+         nil <- get_summary_title_and_description(doc, opts),
+         # nil <- get_summary_opengraph(doc, opts),                                                                      
+         nil <- get_summary_first_paragraph(doc, opts),
+         nil <- get_summary_title(doc, opts),
+         do: nil
   end
 
   defp get_bash_summary(doc, _opts) do
@@ -113,6 +126,44 @@ defmodule Overdiscord.SiteParser do
           nil
       end
     end
+  end
+
+  defp get_git(doc, url, l, opts) do
+    uri = URI.parse(url)
+    title = get_general(doc, opts)
+
+    lines =
+      Regex.run(~r/(\d+)-?L?(\d*)/, to_string(uri.fragment), capture: :all_but_first)
+      |> List.wrap()
+      |> Enum.map(&Integer.parse/1)
+      |> case do
+        [] ->
+          ""
+
+        [{line, ""}, :error] ->
+          doc
+          |> Meeseeks.one(css(l <> "#{line}"))
+          |> Meeseeks.text()
+
+        [{first, ""}, {last, ""}] ->
+          cond do
+            first > last -> nil
+            first + 7 <= last -> first..(first + 8)
+            true -> first..last
+             end
+          |> case do
+            nil ->
+              ""
+
+            range ->
+              doc
+              |> Meeseeks.all(css(l <> Enum.join(range, "," <> l)))
+              |> Enum.map(&Meeseeks.text/1)
+              |> Enum.join("\n")
+          end
+      end
+
+    "#{title}\n#{lines}"
   end
 
   defp get_summary_opengraph(doc, _opts) do

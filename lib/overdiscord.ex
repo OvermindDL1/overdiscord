@@ -28,7 +28,7 @@ defmodule Overdiscord do
         :summary_cache,
         [
           # fallback: fallback(default: &Overdiscord.SiteParser.get_summary_cache_init/1),
-          # default_ttl: :timer.hours(24),
+          default_ttl: :timer.hours(1),
           disable_ode: true,
           # ttl_interval: :timer.hours(1),
           limit: limit(size: 10000, reclaim: 0.1, policy: Cachex.Policy.LRW),
