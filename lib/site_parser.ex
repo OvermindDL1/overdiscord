@@ -46,7 +46,7 @@ defmodule Overdiscord.SiteParser do
       code when code >= 400 and code <= 499 ->
         # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
         # specifically and return empty here otherwise the message, just returning empty for now
-        #"Page does not exist"
+        # "Page does not exist"
         ""
 
       code when code >= 300 and code <= 399 ->
@@ -96,8 +96,8 @@ defmodule Overdiscord.SiteParser do
   catch
     e ->
       IO.puts("THROWN: get_summary")
-    IO.puts(Exception.format(:error, e, __STACKTRACE__))
-    nil
+      IO.puts(Exception.format(:error, e, __STACKTRACE__))
+      nil
   end
 
   defp get_general(doc, opts) do
@@ -150,7 +150,7 @@ defmodule Overdiscord.SiteParser do
             first > last -> nil
             first + 7 <= last -> first..(first + 8)
             true -> first..last
-             end
+          end
           |> case do
             nil ->
               ""

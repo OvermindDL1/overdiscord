@@ -50,7 +50,7 @@ defmodule Overdiscord.Mixfile do
       {:protocol_ex, "~> 0.4.0"},
       {:phoenix, github: "phoenixframework/phoenix", override: true},
       {:phoenix_pubsub, "~> 1.0"},
-      {:phoenix_html, "~> 2.11"},
+      {:phoenix_html, "~> 2.13"},
       {:phoenix_live_reload, "~> 1.0", only: :dev},
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
@@ -58,7 +58,7 @@ defmodule Overdiscord.Mixfile do
       # {:rustler, "~> 0.18.0", override: true},
       # {:html5ever, "~> 0.6.1"},
       {:floki, "~> 0.20.4"},
-      {:drab, "~> 0.9.0"},
+      {:drab, "~> 0.10.1"},
       {:gh_webhook_plug, "~> 0.0.5"}
     ]
   end
