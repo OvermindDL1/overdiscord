@@ -290,9 +290,11 @@ defmodule Overdiscord.IRC.Bridge do
                Meeseeks.text(Meeseeks.one(doc, css("channel item title"))) do
           case db_get(state, :kv, :xkcd_link) do
             ^xkcd_link ->
+              IO.inspect({:old_xkcd_link, xkcd_link})
               nil
 
-            _old_link ->
+            old_link ->
+              IO.inspect({:new_xkcd_link, xkcd_link, old_link})
               db_put(state, :kv, :xkcd_link, xkcd_link)
               db_put(state, :kv, :xkcd_title, xkcd_title)
 
@@ -543,6 +545,10 @@ defmodule Overdiscord.IRC.Bridge do
                 discord: :simple
               )
           )
+
+          if String.starts_with?(nick, "GregoriusTechneticies") do
+            check_greg_xkcd(state)
+          end
 
         # Rest is handled by the Parted section
         _ ->
@@ -1782,7 +1788,8 @@ defmodule Overdiscord.IRC.Bridge do
   def check_greg_xkcd(state, xkcd_link, xkcd_title) do
     last_link = db_get(state, :kv, :xkcd_greg_link)
 
-    if last_link != xkcd_link and away?(state, "#gt-dev", nick: "GregoriusTechneticies") == false do
+    if last_link != xkcd_link and
+         IO.inspect(away?(state, "#gt-dev", nick: "GregoriusTechneticies") == false) do
       db_put(state, :kv, :xkcd_greg_link, xkcd_link)
       send_msg_both("#{xkcd_link} #{xkcd_title}", "#gt-dev", state.client)
       true

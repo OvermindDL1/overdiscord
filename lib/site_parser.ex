@@ -39,54 +39,58 @@ defmodule Overdiscord.SiteParser do
   def get_summary(url, opts) do
     IO.inspect({url, opts})
 
-    %{body: body, status_code: status_code, headers: headers} =
-      _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
+    if String.contains?(url, [".zip", ".png", ".gif"]) do
+      nil
+    else
+      %{body: body, status_code: status_code, headers: headers} =
+        _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
 
-    case status_code do
-      code when code >= 400 and code <= 499 ->
-        # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
-        # specifically and return empty here otherwise the message, just returning empty for now
-        # "Page does not exist"
-        ""
+      case status_code do
+        code when code >= 400 and code <= 499 ->
+          # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
+          # specifically and return empty here otherwise the message, just returning empty for now
+          # "Page does not exist"
+          ""
 
-      code when code >= 300 and code <= 399 ->
-        IO.inspect(headers, label: :Headers)
+        code when code >= 300 and code <= 399 ->
+          IO.inspect(headers, label: :Headers)
 
-        case :proplists.get_value("Location", headers) do
-          :undefined ->
-            "URL Redirects without a Location header"
+          case :proplists.get_value("Location", headers) do
+            :undefined ->
+              "URL Redirects without a Location header"
 
-          new_url ->
-            get_summary(new_url, Map.put(opts, :recursion_limit, opts[:recursion_limit] - 1))
-        end
+            new_url ->
+              get_summary(new_url, Map.put(opts, :recursion_limit, opts[:recursion_limit] - 1))
+          end
 
-      200 ->
-        case url |> String.downcase() |> String.replace(~r|^https?://|, "") do
-          "bash.org/" <> _ ->
-            get_bash_summary(Meeseeks.parse(body), opts)
+        200 ->
+          case url |> String.downcase() |> String.replace(~r|^https?://|, "") do
+            "bash.org/" <> _ ->
+              get_bash_summary(Meeseeks.parse(body), opts)
 
-          "git.gregtech.overminddl1.com/" <> _ ->
-            get_git(Meeseeks.parse(body), url, ".L", opts)
+            "git.gregtech.overminddl1.com/" <> _ ->
+              get_git(Meeseeks.parse(body), url, ".L", opts)
 
-          "github.com/" <> _ ->
-            get_git(Meeseeks.parse(body), url, "#LC", opts)
+            "github.com/" <> _ ->
+              get_git(Meeseeks.parse(body), url, "#LC", opts)
 
-          _unknown ->
-            case :proplists.get_value("Content-Type", headers) do
-              :undefined ->
-                nil
+            _unknown ->
+              case :proplists.get_value("Content-Type", headers) do
+                :undefined ->
+                  nil
 
-              "image" <> _ ->
-                nil
+                "image" <> _ ->
+                  nil
 
-              _ ->
-                get_general(Meeseeks.parse(body), opts)
-            end
-        end
+                _ ->
+                  get_general(Meeseeks.parse(body), opts)
+              end
+          end
 
-      _ ->
-        IO.inspect({:invalid_status_code, :get_summary, status_code})
-        nil
+        _ ->
+          IO.inspect({:invalid_status_code, :get_summary, status_code})
+          nil
+      end
     end
   rescue
     e ->
