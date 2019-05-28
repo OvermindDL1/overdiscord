@@ -765,22 +765,26 @@ defmodule Overdiscord.IRC.Bridge do
         down_username = String.downcase(username)
 
         try do
-          case Alchemy.Cache.search(:members, fn
-                 %{user: %{username: ^username}} ->
-                   true
+          if down_username in ["everyone"] do
+            "#{pre}@ everyone"
+          else
+            case Alchemy.Cache.search(:members, fn
+                   %{user: %{username: ^username}} ->
+                     true
 
-                 %{user: %{username: discord_username}} ->
-                   down_username == String.downcase(discord_username)
+                   %{user: %{username: discord_username}} ->
+                     down_username == String.downcase(discord_username)
 
-                 _ ->
-                   false
-               end) do
-            [%{user: %{id: id}}] ->
-              [pre, ?<, ?@, id, ?>]
+                   _ ->
+                     false
+                 end) do
+              [%{user: %{id: id}}] ->
+                [pre, ?<, ?@, id, ?>]
 
-            s ->
-              IO.inspect(s, label: :MemberNotFound)
-              full
+              s ->
+                IO.inspect(s, label: :MemberNotFound)
+                full
+            end
           end
         rescue
           r ->
@@ -803,6 +807,8 @@ defmodule Overdiscord.IRC.Bridge do
     |> String.replace(~R/@?\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
     |> String.replace(~R/@?\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
     |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
+    |> String.replace(~R/@?\bnetmc\b/i, "<@185586090416013312>")
+    |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
     |> to_string()
   end
 
