@@ -40,6 +40,7 @@ defmodule Overdiscord.SiteParser do
     IO.inspect({url, opts})
 
     if String.contains?(url, [".zip", ".png", ".gif"]) do
+      IO.puts("Skipped url")
       nil
     else
       %{body: body, status_code: status_code, headers: headers} =

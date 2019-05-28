@@ -794,14 +794,15 @@ defmodule Overdiscord.IRC.Bridge do
       end)
 
     msg
-    |> String.replace(~R/\bbear989\b|\bbear989sr\b|\bbear\b/i, "<@225728625238999050>")
+    |> String.replace(~R/@?\bbear989\b|@?\bbear989sr\b|@?\bbear\b/i, "<@225728625238999050>")
     |> String.replace(
-      ~R/\bqwertygiy\b|\bqwerty\b|\bqwertys\b|\bqwertz\b|\bqwertzs\b/i,
+      ~R/@?\bqwertygiy\b|@?\bqwerty\b|@?\bqwertys\b|@?\bqwertz\b|@?\bqwertzs\b/i,
       "<@80832726017511424>"
     )
-    |> String.replace(~R/\bSuperCoder79\b/i, "SuperCoder79")
-    |> String.replace(~R/\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
-    |> String.replace(~R/\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
+    |> String.replace(~R/@?\bSuperCoder79\b/i, "<@222338097604460545>")
+    |> String.replace(~R/@?\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
+    |> String.replace(~R/@?\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
+    |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
     |> to_string()
   end
 
