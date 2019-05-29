@@ -58,7 +58,7 @@ defmodule Overdiscord.Mixfile do
       {:jason, "~> 1.0"},
       # {:rustler, "~> 0.18.0", override: true},
       # {:html5ever, "~> 0.6.1"},
-      {:floki, "~> 0.20.4"},
+      {:floki, "~> 0.21.0"},
       {:drab, "~> 0.10.1"},
       {:gh_webhook_plug, "~> 0.0.5"}
     ]
