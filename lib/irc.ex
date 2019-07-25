@@ -171,7 +171,7 @@ defmodule Overdiscord.IRC.Bridge do
       {"[Bears Den]" <> _, "[Bears Den] <> _"} ->
         [
           "Bear changed stream to: #{stream}",
-          "See the stream at:  https://gaming.youtube.com/c/aBear989/live"
+          "See the stream at:  https://www.youtube.com/c/aBear989/live"
         ]
         |> send_msg_both("#gt-dev", state.client, discord: :simple)
 
@@ -184,7 +184,7 @@ defmodule Overdiscord.IRC.Bridge do
       {_, "[Bears Den]" <> _} ->
         [
           "Bear has started streaming: #{stream}",
-          "See the stream at:  https://gaming.youtube.com/c/aBear989/live"
+          "See the stream at:  https://www.youtube.com/c/aBear989/live"
         ]
         |> send_msg_both("#gt-dev", state.client, discord: :simple)
 
@@ -208,7 +208,7 @@ defmodule Overdiscord.IRC.Bridge do
             :ok
 
           _oldpresence ->
-            case Overdiscord.SiteParser.get_summary("https://gaming.youtube.com/c/aBear989/live") do
+            case Overdiscord.SiteParser.get_summary("https://wwwn:w.youtube.com/c/aBear989/live") do
               nil ->
                 IO.inspect("No response from youtube!", label: :YoutubeError)
 
@@ -761,7 +761,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   def convert_message_to_discord(msg) do
     msg =
-      Regex.replace(~R/([^<]|^)\B@!?([a-zA-Z0-9]+)\b/, msg, fn full, pre, username ->
+      Regex.replace(~R/([^<]|^)\B@!?([a-zA-Z0-9]+)\b/i, msg, fn full, pre, username ->
         down_username = String.downcase(username)
 
         try do
@@ -809,6 +809,8 @@ defmodule Overdiscord.IRC.Bridge do
     |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
     |> String.replace(~R/@?\bnetmc\b/i, "<@185586090416013312>")
     |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
+    |> String.replace(~R/@?\bdbp\b|@?\bdpb\b/i, "<@138742528051642369>")
+    |> String.replace(~R/@?\baxlegear\b/i, "<@226165192814362634>")
     |> to_string()
   end
 
