@@ -37,7 +37,7 @@
   "kcl": {:hex, :kcl, "1.1.1", "bf87dfe1996c351f6e11b1ba63581507afc24b14164480ae5c6612615b05475e", [:mix], [{:curve25519, ">= 1.0.2", [hex: :curve25519, repo: "hexpm", optional: false]}, {:ed25519, "~> 1.3", [hex: :ed25519, repo: "hexpm", optional: false]}, {:poly1305, "~> 1.0", [hex: :poly1305, repo: "hexpm", optional: false]}, {:salsa20, "~> 1.0", [hex: :salsa20, repo: "hexpm", optional: false]}], "hexpm"},
   "libring": {:hex, :libring, "1.4.0", "41246ba2f3fbc76b3971f6bce83119dfec1eee17e977a48d8a9cfaaf58c2a8d6", [:mix], [], "hexpm"},
   "luerl": {:hex, :luerl, "0.4.0", "6d3191f529286b77b765e790a70cc36b6b27d91e97363afa89e0b7394f5116bd", [:rebar3], [], "hexpm"},
-  "meeseeks": {:hex, :meeseeks, "0.11.2", "aa84fb21f6391ee3c60ba749c73ca2a67e1c96e7f8baac444eaac8355964d147", [:mix], [{:meeseeks_html5ever, "~> 0.11.1", [hex: :meeseeks_html5ever, repo: "hexpm", optional: false]}], "hexpm"},
+  "meeseeks": {:hex, :meeseeks, "0.12.0", "8b90c7c42940e0758abc2744c3aea56f277bda74b30588238b70dfc3f6100f2d", [:mix], [{:meeseeks_html5ever, "~> 0.11.1", [hex: :meeseeks_html5ever, repo: "hexpm", optional: false]}], "hexpm"},
   "meeseeks_html5ever": {:hex, :meeseeks_html5ever, "0.11.1", "aa2cd25021e055e0bd206beae73660cc198a6c90a3a6eca1aee8e8d7c48307b7", [:mix], [{:rustler, "~> 0.20.0", [hex: :rustler, repo: "hexpm", optional: false]}], "hexpm"},
   "metrics": {:hex, :metrics, "1.0.1", "25f094dea2cda98213cecc3aeff09e940299d950904393b2a29d191c346a8486", [:rebar3], [], "hexpm"},
   "mime": {:hex, :mime, "1.3.1", "30ce04ab3175b6ad0bdce0035cba77bba68b813d523d1aac73d9781b4d193cf8", [:mix], [], "hexpm"},
