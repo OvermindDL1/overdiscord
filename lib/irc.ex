@@ -1714,17 +1714,47 @@ defmodule Overdiscord.IRC.Bridge do
     send_msg_both("Fish", chan, state.client)
   end
 
-  def message_extra(:msg, "=" <> expression, _auth, chan, state) do
-    lua_eval_msg(
-      state,
+  def message_extra(:msg, "=", _auth, chan, state) do
+    send_msg_both(
+      "General scientific calculator, try `=2pi` or `=toCelsius(fromFahrenheit(98))`",
       chan,
-      "return #{expression}",
-      cb: fn
-        {:ok, [result]} -> send_msg_both("#{inspect(result)}", chan, state.client)
-        {:ok, result} -> send_msg_both("#{inspect(result)}", chan, state.client)
-        {:error, _reason} -> send_msg_both("= <failed>", chan, state.client)
-      end
+      state.client
     )
+  end
+
+  def message_extra(:msg, "=" <> expression, _auth, chan, state) do
+    # lua_eval_msg(
+    #   state,
+    #   chan,
+    #   "return #{expression}",
+    #   cb: fn
+    #     {:ok, [result]} -> send_msg_both("#{inspect(result)}", chan, state.client)
+    #     {:ok, result} -> send_msg_both("#{inspect(result)}", chan, state.client)
+    #     {:error, _reason} -> send_msg_both("= <failed>", chan, state.client)
+    #   end
+    # )
+    IO.inspect({:request, expression}, label: :Insect)
+
+    case System.cmd("/var/insect/index.js", [expression], stderr_to_stdout: true) do
+      {"", 0} ->
+        send_msg_both("=> <Invalid Input>", chan, state.client)
+
+      {result, 0} ->
+        result = String.trim(result)
+        result = String.replace(result, ~R/\e[[][0-9]+m/, "")
+        IO.inspect({:result, result}, label: :Insect)
+        send_msg_both("=> " <> result, chan, state.client)
+
+      {reason, code} ->
+        id = :erlang.unique_integer()
+        IO.inspect({id, reason, code}, label: :Insect)
+
+        send_msg_both(
+          "Failed with error, report to OvermindDL1 with code: #{inspect(id)}",
+          chan,
+          state.client
+        )
+    end
   end
 
   def message_extra(_type, msg, _auth, chan, %{client: client} = _state) do
