@@ -290,7 +290,7 @@ defmodule Overdiscord.IRC.Bridge do
                Meeseeks.text(Meeseeks.one(doc, css("channel item title"))) do
           case {db_get(state, :kv, :xkcd_link), db_get(state, :kv, :xkcd_title)} do
             {^xkcd_link, ^xkcd_title} ->
-              IO.inspect({:old_xkcd_link, xkcd_link})
+              IO.inspect({:old_xkcd_link, xkcd_link, xkcd_title})
               nil
 
             {old_link, old_title} ->
