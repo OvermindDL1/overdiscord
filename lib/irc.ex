@@ -288,13 +288,13 @@ defmodule Overdiscord.IRC.Bridge do
                Meeseeks.text(Meeseeks.one(doc, css("channel item link"))),
              xkcd_title when xkcd_title != nil <-
                Meeseeks.text(Meeseeks.one(doc, css("channel item title"))) do
-          case db_get(state, :kv, :xkcd_link) do
-            ^xkcd_link ->
+          case {db_get(state, :kv, :xkcd_link), db_get(state, :kv, :xkcd_title)} do
+            {^xkcd_link, ^xkcd_title} ->
               IO.inspect({:old_xkcd_link, xkcd_link})
               nil
 
-            old_link ->
-              IO.inspect({:new_xkcd_link, xkcd_link, old_link})
+            {old_link, old_title} ->
+              IO.inspect({:new_xkcd_link, xkcd_link, xkcd_title, old_link, old_title})
               db_put(state, :kv, :xkcd_link, xkcd_link)
               db_put(state, :kv, :xkcd_title, xkcd_title)
 
