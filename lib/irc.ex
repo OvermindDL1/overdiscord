@@ -96,6 +96,10 @@ defmodule Overdiscord.IRC.Bridge do
     {:ok, state}
   end
 
+  def handle_call(:get_state, _from, state) do
+    {:reply, state, state}
+  end
+
   def handle_call(:get_db, _from, state) do
     {:reply, state.db, state}
   end
@@ -291,6 +295,7 @@ defmodule Overdiscord.IRC.Bridge do
           case {db_get(state, :kv, :xkcd_link), db_get(state, :kv, :xkcd_title)} do
             {^xkcd_link, ^xkcd_title} ->
               IO.inspect({:old_xkcd_link, xkcd_link, xkcd_title})
+              check_greg_xkcd(state, xkcd_link, xkcd_title)
               nil
 
             {old_link, old_title} ->
@@ -586,6 +591,7 @@ defmodule Overdiscord.IRC.Bridge do
     end)
 
     state = %{state | meta: put_in(state.meta, [:whos, channel], whosm)}
+    check_greg_xkcd(state)
     {:noreply, state}
   end
 
