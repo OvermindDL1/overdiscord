@@ -55,7 +55,7 @@
   "poison": {:hex, :poison, "4.0.1", "bcb755a16fac91cad79bfe9fc3585bb07b9331e50cfe3420a24bcc2d735709ae", [:mix], [], "hexpm"},
   "poly1305": {:hex, :poly1305, "1.0.2", "c6bb74cbe79747cc12aa1580791c2bd8e0f062bc8faaf117b756e675cfaea03d", [:mix], [{:chacha20, "~> 1.0", [hex: :chacha20, repo: "hexpm", optional: false]}, {:equivalex, "~> 1.0", [hex: :equivalex, repo: "hexpm", optional: false]}], "hexpm"},
   "porcelain": {:hex, :porcelain, "2.0.3", "2d77b17d1f21fed875b8c5ecba72a01533db2013bd2e5e62c6d286c029150fdc", [:mix], [], "hexpm"},
-  "protocol_ex": {:hex, :protocol_ex, "0.4.2", "faa832d88e60621f74d90aecc6928e0dc97af7ec05598a289cfd75aaeb43a130", [:mix], [], "hexpm"},
+  "protocol_ex": {:hex, :protocol_ex, "0.4.3", "4acbe35da85109dc40315c1139bb7a65ebc7fc102d384cd8b3038384fbb9b282", [:mix], [], "hexpm"},
   "quantum": {:hex, :quantum, "2.3.4", "72a0e8855e2adc101459eac8454787cb74ab4169de6ca50f670e72142d4960e9", [:mix], [{:calendar, "~> 0.17", [hex: :calendar, repo: "hexpm", optional: true]}, {:crontab, "~> 1.1", [hex: :crontab, repo: "hexpm", optional: false]}, {:gen_stage, "~> 0.12", [hex: :gen_stage, repo: "hexpm", optional: false]}, {:swarm, "~> 3.3", [hex: :swarm, repo: "hexpm", optional: false]}, {:timex, "~> 3.1", [hex: :timex, repo: "hexpm", optional: true]}], "hexpm"},
   "ranch": {:hex, :ranch, "1.7.1", "6b1fab51b49196860b733a49c07604465a47bdb78aa10c1c16a3d199f7f8c881", [:rebar3], [], "hexpm"},
   "rustler": {:hex, :rustler, "0.20.0", "6b2cc8149700a7b1df2226dbe273ec1f9449318cad3bd3b5b68125a4cf1f438b", [:mix], [], "hexpm"},
