@@ -47,6 +47,7 @@ defmodule Overdiscord.SiteParser do
         _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
 
       uri = URI.parse(url)
+      opts = [uri: uri] ++ opts
 
       case status_code do
         code when code >= 400 and code <= 499 ->
@@ -86,7 +87,7 @@ defmodule Overdiscord.SiteParser do
                   nil
 
                 _ ->
-                  get_general(Meeseeks.parse(body), [uri: uri] ++ opts)
+                  get_general(Meeseeks.parse(body), opts)
               end
           end
 
@@ -128,18 +129,42 @@ defmodule Overdiscord.SiteParser do
 
       cond do
         String.contains?(host, "wikipedia.org") ->
-          with(
-            [_ | _] = elems <- Meeseeks.all(doc, css(".mw-parser-output > *")),
-            [_header, elem | _elems] <-
-              Enum.drop_while(elems, &(nil == Meeseeks.one(&1, css(frag_selector)))),
-            do: get_first_line_trimmed(Meeseeks.text(elem)),
-            else: ([] -> nil)
+          get_when_matched(doc, css(".mw-parser-output > *"), frag_selector, true, nil)
+
+        String.contains?(host, "github.com") ->
+          get_when_matched(
+            doc,
+            css("div.js-timeline-item"),
+            frag_selector,
+            false,
+            css(".comment-body")
           )
 
         :else ->
           nil
       end
     end
+  end
+
+  defp get_when_matched(doc, selector, frag_selector, get_after, child_selector) do
+    Meeseeks.all(doc, selector)
+    |> get_when_matched(frag_selector, get_after, child_selector)
+  end
+
+  defp get_when_matched([], _frag_selector, _get_after, _child_selector), do: nil
+
+  defp get_when_matched([_ | _] = elems, frag_selector, get_after, child_selector) do
+    case Enum.drop_while(elems, &(nil == Meeseeks.one(&1, css(frag_selector)))) do
+      [elem | _] when not get_after -> elem
+      [_header, elem | _] when get_after -> elem
+      _ -> nil
+    end
+    |> case do
+      elem when child_selector == nil -> elem
+      elem when child_selector != nil -> Meeseeks.one(elem, child_selector)
+    end
+    |> Meeseeks.text()
+    |> get_first_line_trimmed()
   end
 
   defp get_bash_summary(doc, _opts) do
