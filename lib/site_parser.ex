@@ -46,6 +46,8 @@ defmodule Overdiscord.SiteParser do
       %{body: body, status_code: status_code, headers: headers} =
         _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
 
+      uri = URI.parse(url)
+
       case status_code do
         code when code >= 400 and code <= 499 ->
           # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
@@ -84,7 +86,7 @@ defmodule Overdiscord.SiteParser do
                   nil
 
                 _ ->
-                  get_general(Meeseeks.parse(body), opts)
+                  get_general(Meeseeks.parse(body), [uri: uri] ++ opts)
               end
           end
 
@@ -106,12 +108,38 @@ defmodule Overdiscord.SiteParser do
   end
 
   defp get_general(doc, opts) do
-    with nil <- get_summary_opengraph(doc, opts),
+    with nil <- get_fragment_paragraph(doc, opts),
+         nil <- get_summary_opengraph(doc, opts),
          nil <- get_summary_title_and_description(doc, opts),
          # nil <- get_summary_opengraph(doc, opts),                                                                      
          nil <- get_summary_first_paragraph(doc, opts),
          nil <- get_summary_title(doc, opts),
          do: nil
+  end
+
+  def get_fragment_paragraph(doc, opts) do
+    fragment = opts[:uri] && opts[:uri].fragment
+    host = opts[:uri] && opts[:uri].host
+
+    if fragment in [nil, ""] do
+      nil
+    else
+      frag_selector = "#" <> fragment
+
+      cond do
+        String.contains?(host, "wikipedia.org") ->
+          with(
+            [_ | _] = elems <- Meeseeks.all(doc, css(".mw-parser-output > *")),
+            [_header, elem | _elems] <-
+              Enum.drop_while(elems, &(nil == Meeseeks.one(&1, css(frag_selector)))),
+            do: get_first_line_trimmed(Meeseeks.text(elem)),
+            else: ([] -> nil)
+          )
+
+        :else ->
+          nil
+      end
+    end
   end
 
   defp get_bash_summary(doc, _opts) do

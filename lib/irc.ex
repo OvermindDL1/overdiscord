@@ -552,7 +552,7 @@ defmodule Overdiscord.IRC.Bridge do
           )
 
           if String.starts_with?(nick, "GregoriusTechneticies") do
-            check_greg_xkcd(state)
+            check_greg_xkcd(%{state | meta: put_in(state.meta, [:whos, channel], whosm)})
           end
 
         # Rest is handled by the Parted section
@@ -591,7 +591,6 @@ defmodule Overdiscord.IRC.Bridge do
     end)
 
     state = %{state | meta: put_in(state.meta, [:whos, channel], whosm)}
-    check_greg_xkcd(state)
     {:noreply, state}
   end
 
