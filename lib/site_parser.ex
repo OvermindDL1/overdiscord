@@ -39,15 +39,28 @@ defmodule Overdiscord.SiteParser do
   def get_summary(url, opts) do
     IO.inspect({url, opts})
 
+    uri =
+      case URI.parse(url) do
+        %{authority: yt} = uri when yt in ["youtube.com", "www.youtube.com"] ->
+          case uri.query do
+            nil -> %{uri | query: "hl=en"}
+            "" -> %{uri | query: "hl=en"}
+            query -> %{uri | query: query <> "&hl=en"}
+          end
+
+        others ->
+          others
+      end
+
+    opts = [uri: uri] ++ opts
+    url = URI.to_string(uri)
+
     if String.contains?(url, [".zip", ".png", ".gif"]) do
       IO.puts("Skipped url")
       nil
     else
       %{body: body, status_code: status_code, headers: headers} =
         _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
-
-      uri = URI.parse(url)
-      opts = [uri: uri] ++ opts
 
       case status_code do
         code when code >= 400 and code <= 499 ->
@@ -296,6 +309,9 @@ defmodule Overdiscord.SiteParser do
 
   defp get_first_line_trimmed(lines) do
     lines
+    # Institute 'some' kind of max limit, 2048 will do for now
+    |> String.split_at(2048)
+    |> elem(0)
     |> String.trim()
     |> String.split("\n")
     |> List.first()
