@@ -184,7 +184,7 @@ defmodule Overdiscord.Commands do
     now = NaiveDateTime.utc_now()
     last_activity = Storage.get(@db, :kv, :activity, now)
 
-    if NaiveDateTime.compare(last_activity, NaiveDateTime.add(now, -60 * 60, :seconds)) == :lt do
+    if NaiveDateTime.compare(last_activity, NaiveDateTime.add(now, -60 * 60, :second)) == :lt do
       IO.puts("===============================")
 
       IO.inspect(

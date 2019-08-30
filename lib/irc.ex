@@ -1,6 +1,8 @@
 defmodule Overdiscord.IRC.Bridge do
   # TODO:  `?update` Download Link, Screenshot, Changelog order all at once
 
+  require Logger
+
   defmodule State do
     defstruct host: "irc.esper.net",
               port: 6667,
@@ -56,6 +58,10 @@ defmodule Overdiscord.IRC.Bridge do
 
   def poll_xkcd() do
     :gen_server.cast(:irc_bridge, :poll_xkcd)
+  end
+
+  def poll_feed() do
+    :gen_server.cast(:irc_bridge, :poll_feed)
   end
 
   def poll_delay_msgs() do
@@ -277,6 +283,93 @@ defmodule Overdiscord.IRC.Bridge do
     db_put(state, :kv, {:presence, nick}, game)
 
     {:noreply, state}
+  end
+
+  def handle_cast(:poll_feed, state) do
+    import Meeseeks.CSS
+
+    # db_put(state, :kv, :feed_links, [
+    #  "https://xkcd.com/rss.xml",
+    #  "https://factorio.com/blog/rss"
+    # ])
+    db_get(state, :kv, :feed_links)
+    |> List.wrap()
+    |> Enum.each(fn url ->
+      Logger.info("Fetching feed at:  #{url}")
+
+      case HTTPoison.get(url) do
+        {:error, reason} ->
+          Logger.error("Feed Fetch Failure at `#{url}`:  #{inspect(reason)}")
+
+        {:ok, %{status_code: status_code}} when status_code != 200 ->
+          Logger.error("Feed Invalid Status Code at `#{url}`: #{inspect(status_code)}")
+
+        {:ok, %{status_code: 200, body: body}} ->
+          Logger.info("Feed Fetch Success at `#{url}`")
+          doc = Meeseeks.parse(body, :xml)
+
+          cond do
+            # Atom
+            Meeseeks.one(doc, css("feed")) ->
+              data = %{
+                link: Meeseeks.attr(Meeseeks.one(doc, css("feed > entry > link[href]")), "href"),
+                title:
+                  Meeseeks.text(Meeseeks.one(doc, css("feed > entry > title[type=\"text\"]")))
+              }
+
+              Logger.info("Atom Feed Data: #{inspect(data)}")
+
+              if data.link && data.title do
+                data
+              else
+                nil
+              end
+
+            # RSS
+            Meeseeks.one(doc, css("rss")) ->
+              data = %{
+                link: Meeseeks.text(Meeseeks.one(doc, css("channel item link"))),
+                title: Meeseeks.text(Meeseeks.one(doc, css("channel item title")))
+              }
+
+              Logger.info("RSS Feed Data: #{inspect(data)}")
+
+              if data.link && data.title do
+                data
+              else
+                nil
+              end
+
+            :else ->
+              Logger.error("Unknown Feed Type at `#{url}`: #{String.slice(body, 0..100)}")
+              nil
+          end
+          |> case do
+            nil ->
+              Logger.info("Feed failed to acquire useful data")
+              nil
+
+            data ->
+              case db_get(state, :kv, {:feed_link, url}) do
+                # No change
+                ^data ->
+                  Logger.info("Feed data unchanged from database")
+                  nil
+
+                old_data ->
+                  Logger.info(
+                    "Feed data changed:\n\tOld: #{inspect(old_data)}\n\tNew: #{inspect(data)}"
+                  )
+
+                  db_put(state, :kv, {:feed_link, url}, data)
+              end
+          end
+      end
+    end)
+
+    send_feeds(state)
+
+    {:noreply, state, :hibernate}
   end
 
   def handle_cast(:poll_xkcd, state) do
@@ -591,6 +684,7 @@ defmodule Overdiscord.IRC.Bridge do
     end)
 
     state = %{state | meta: put_in(state.meta, [:whos, channel], whosm)}
+    send_feeds(state)
     {:noreply, state}
   end
 
@@ -674,6 +768,7 @@ defmodule Overdiscord.IRC.Bridge do
     # if chan == "#gt-dev-test" and :erlang.now() > last do
     #  ExIRC.Client.msg(state.client, :privmsg, chan, "Welcome #{nick}!")
     # end
+    send_feeds(state)
     {:noreply, state}
   end
 
@@ -924,6 +1019,17 @@ defmodule Overdiscord.IRC.Bridge do
                 Alchemy.Client.send_message(alchemy_channel(), "", [{:embed, embed}])
                 nil
             end
+        end
+      end,
+      "feeds" => fn _cmd, args, _auth, _chan, _state ->
+        case args do
+          _ ->
+            feeds =
+              db_get(state, :kv, :feed_links)
+              |> List.wrap()
+              |> Enum.join(" ")
+
+            "Feeds: " <> feeds
         end
       end,
       "xkcd" => fn _cmd, args, _auth, _chan, _state ->
@@ -1738,6 +1844,7 @@ defmodule Overdiscord.IRC.Bridge do
     #     {:error, _reason} -> send_msg_both("= <failed>", chan, state.client)
     #   end
     # )
+    expression = String.replace(expression, ";", "\n")
     IO.inspect({:request, expression}, label: :Insect)
 
     case System.cmd("/var/insect/index.js", [expression], stderr_to_stdout: true) do
@@ -1840,6 +1947,41 @@ defmodule Overdiscord.IRC.Bridge do
     else
       nil
     end
+  end
+
+  def send_feeds(state) do
+    db_get(state, :kv, :feed_links)
+    |> List.wrap()
+    |> Enum.each(&send_feeds(state, &1))
+  end
+
+  def send_feeds(state, url) do
+    send_feeds(state, url, db_get(state, :kv, {:feed_link, url}))
+  end
+
+  def send_feeds(_state, _url, nil), do: nil
+
+  def send_feeds(state, url, %{link: link, title: title} = acquired_data)
+      when is_binary(link) and is_binary(title) do
+    case db_get(state, :kv, {:feed_link, :last, url}) do
+      # No change
+      ^acquired_data ->
+        nil
+
+      last_data ->
+        Logger.info(
+          "Processing Feed data `#{url}` to channels:\n\tOld: #{inspect(last_data)}\n\tNew: #{
+            inspect(acquired_data)
+          }"
+        )
+
+        db_put(state, :kv, {:feed_link, :last, url}, acquired_data)
+        send_msg_both("Feed: #{link} #{title}", "#gt-dev", state.client)
+    end
+  end
+
+  def send_feeds(_state, url, unknown_data) do
+    Logger.error("Unknown feed data in channel processing at `#{url}`: #{inspect(unknown_data)}")
   end
 
   def split_at_irc_max_length(msg) do
