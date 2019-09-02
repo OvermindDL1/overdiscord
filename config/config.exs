@@ -34,7 +34,7 @@ config :alchemy,
 config :overdiscord, Overdiscord.Cron,
   jobs: [
     # {"0 * * * *", {Overdiscord.IRC.Bridge, :poll_xkcd, []}},
-    {"0 * * * *", {Overdiscord.IRC.Bridge, :poll_feeds, []}},
+    {"*/30 * * * *", {Overdiscord.IRC.Bridge, :poll_feeds, []}},
     {"*/1 * * * *", {Overdiscord.IRC.Bridge, :poll_delay_msgs, []}},
     {"*/15 * * * *", {Overdiscord.Commands, :check_dead, []}}
   ]

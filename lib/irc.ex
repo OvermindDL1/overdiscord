@@ -1021,15 +1021,77 @@ defmodule Overdiscord.IRC.Bridge do
             end
         end
       end,
-      "feeds" => fn _cmd, args, _auth, _chan, _state ->
+      "feeds" => fn _cmd, args, auth, _chan, _state ->
         case args do
           "" ->
+            is_admin = is_admin(auth)
+
+            [
+              "?feeds -> Shows this help screen",
+              "?feeds list -> Lists Feed URLs",
+              is_admin && "?feeds add <url> -> Adds a new Feed url to track",
+              is_admin && "?feeds remove <url> -> Removes a Feed url from tracking",
+              "?feeds <urlpart> -> Searching first URL that matches selection and shows it"
+            ]
+            |> Enum.filter(& &1)
+            |> Enum.join("\n")
+
+          "list" ->
             feeds =
               db_get(state, :kv, :feed_links)
               |> List.wrap()
               |> Enum.join(" ")
 
             "Feeds: " <> feeds
+
+          "add " <> url ->
+            url = String.trim(url)
+            uri = URI.parse(url)
+            url = URI.to_string(uri)
+            urls = List.wrap(db_get(state, :kv, :feed_links))
+
+            cond do
+              not is_admin(auth) ->
+                "Missing required access permissions"
+
+              not is_binary(uri.host) and is_binary(uri.path) and uri.scheme in ["http", "https"] ->
+                "Not a valid URL for tracking"
+
+              not Enum.member?(urls, url) ->
+                "Already exists as a feed URL: #{url}"
+
+              true ->
+                db_put(state, :kv, :feed_links, Enum.sort([url | urls]))
+
+                "Added `#{url}` feed"
+            end
+
+          "remove " <> url ->
+            url = String.trim(url)
+            url = URI.to_string(URI.parse(url))
+            urls = db_get(state, :kv, :feed_links)
+
+            cond do
+              not is_admin(auth) ->
+                "Missing required access permissions"
+
+              true ->
+                case Enum.filter(urls, &(&1 != url)) do
+                  [] ->
+                    "No feeds to remove"
+
+                  new_urls when length(new_urls) == length(urls) ->
+                    [{_closeness, found} | _] =
+                      urls
+                      |> Enum.map(&{-String.jaro_distance(&1, url), &1})
+                      |> Enum.sort()
+
+                    "No exact matching URL's found for `#{url}`, maybe you meant: #{found}"
+
+                  new_urls ->
+                    "Removed: #{Enum.join(urls -- new_urls, ",")}"
+                end
+            end
 
           search ->
             with(
