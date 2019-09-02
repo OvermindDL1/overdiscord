@@ -1040,9 +1040,9 @@ defmodule Overdiscord.IRC.Bridge do
             feeds =
               db_get(state, :kv, :feed_links)
               |> List.wrap()
-              |> Enum.join(" ")
+              |> Enum.join("\n\t")
 
-            "Feeds: " <> feeds
+            "Feeds:\n\t" <> feeds
 
           "add " <> url ->
             url = String.trim(url)
