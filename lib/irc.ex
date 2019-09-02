@@ -60,8 +60,8 @@ defmodule Overdiscord.IRC.Bridge do
     :gen_server.cast(:irc_bridge, :poll_xkcd)
   end
 
-  def poll_feed() do
-    :gen_server.cast(:irc_bridge, :poll_feed)
+  def poll_feeds() do
+    :gen_server.cast(:irc_bridge, :poll_feeds)
   end
 
   def poll_delay_msgs() do
@@ -285,7 +285,7 @@ defmodule Overdiscord.IRC.Bridge do
     {:noreply, state}
   end
 
-  def handle_cast(:poll_feed, state) do
+  def handle_cast(:poll_feeds, state) do
     import Meeseeks.CSS
 
     # db_put(state, :kv, :feed_links, [
