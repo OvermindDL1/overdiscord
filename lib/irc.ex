@@ -1023,13 +1023,22 @@ defmodule Overdiscord.IRC.Bridge do
       end,
       "feeds" => fn _cmd, args, _auth, _chan, _state ->
         case args do
-          _ ->
+          "" ->
             feeds =
               db_get(state, :kv, :feed_links)
               |> List.wrap()
               |> Enum.join(" ")
 
             "Feeds: " <> feeds
+
+          search ->
+            with(
+              urls <- db_get(state, :kv, :feed_links),
+              url when is_binary(url) <- Enum.find(urls, &String.contains?(&1, search)),
+              %{link: link, title: title} <- db_get(state, :kv, {:feed_link, url}),
+              do: "#{link} #{title}",
+              else: (_ -> "No matching feed for: #{search}")
+            )
         end
       end,
       "xkcd" => fn _cmd, args, _auth, _chan, _state ->
@@ -1039,10 +1048,48 @@ defmodule Overdiscord.IRC.Bridge do
 
           _ ->
             with(
-              xkcd_link when xkcd_link != nil <- db_get(state, :kv, :xkcd_link),
-              xkcd_title when xkcd_title != nil <- db_get(state, :kv, :xkcd_title),
-              do: "#{xkcd_link} #{xkcd_title}"
+              urls <- db_get(state, :kv, :feed_links),
+              url when is_binary(url) <- Enum.find(urls, &String.contains?(&1, "xkcd")),
+              %{link: link, title: title} <- db_get(state, :kv, {:feed_link, url}),
+              do: "#{link} #{title}",
+              else: (_ -> "XKCD Feed not found")
             )
+        end
+      end,
+      "fff" => fn _cmd, args, _auth, _chan, _state ->
+        case Integer.parse(String.trim(args)) do
+          {id, ""} ->
+            "https://factorio.com/blog/post/fff-#{id}"
+
+          _ ->
+            with(
+              urls <- db_get(state, :kv, :feed_links),
+              url when is_binary(url) <- Enum.find(urls, &String.contains?(&1, "factorio")),
+              %{link: link, title: title} <- db_get(state, :kv, {:feed_link, url}),
+              do: "#{link} #{title}",
+              else: (_ -> "Factorio Feed not found")
+            )
+        end
+      end,
+      "yt" => fn _cmd, args, _auth, chan, state ->
+        case String.trim(args) do
+          "" ->
+            "Example:  ?yt someYtID"
+
+          id ->
+            if Regex.match?(~R/[a-zA-Z0-9_-]{11}/, id) do
+              url = "https://www.youtube.com/watch?v=#{id}"
+
+              case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :UrlSummary) do
+                nil ->
+                  "Not an active YouTube ID"
+
+                summary ->
+                  send_msg_both(url <> "\n" <> summary, chan, state.client, discord: false)
+              end
+            else
+              "Not a valid YouTube ID"
+            end
         end
       end,
       "google" => fn _cmd, args, _auth, _chan, _state ->
