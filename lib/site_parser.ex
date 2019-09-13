@@ -43,9 +43,9 @@ defmodule Overdiscord.SiteParser do
       case URI.parse(url) do
         %{authority: yt} = uri when yt in ["youtube.com", "www.youtube.com"] ->
           case uri.query do
-            nil -> %{uri | query: "hl=en"}
-            "" -> %{uri | query: "hl=en"}
-            query -> %{uri | query: query <> "&hl=en"}
+            nil -> %{uri | query: "hl=en&disable_polymer=true"}
+            "" -> %{uri | query: "hl=en&disable_polymer=true"}
+            query -> %{uri | query: query <> "&hl=en&disable_polymer=true"}
           end
 
         others ->
@@ -59,15 +59,32 @@ defmodule Overdiscord.SiteParser do
       IO.puts("Skipped url")
       nil
     else
+      req_headers = [
+        {"authority", uri.host},
+        {"pragma", "no-cache"},
+        {"cache-control", "no-cache"},
+        {"upgrade-insecure-requests", "1"},
+        {"user-agent",
+         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36"},
+        {"sec-fetch-mode", "navigate"},
+        {"sec-fetch-user", "?1"},
+        {"accept",
+         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3"},
+        {"sec-fetch-site", "none"},
+        # {"accept-encoding", "gzip, deflate, br"},
+        {"accept-language", "en-US,en;q=0.9"}
+      ]
+
       %{body: body, status_code: status_code, headers: headers} =
-        _response = HTTPoison.get!(url, [], follow_redirect: true, max_redirect: 10)
+        _response = HTTPoison.get!(url, req_headers, follow_redirect: true, max_redirect: 10)
 
       case status_code do
         code when code >= 400 and code <= 499 ->
           # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
           # specifically and return empty here otherwise the message, just returning empty for now
-          # "Page does not exist"
-          ""
+          "Page does not exist, code: #{code}"
+
+        # nil
 
         code when code >= 300 and code <= 399 ->
           IO.inspect(headers, label: :Headers)
@@ -122,12 +139,11 @@ defmodule Overdiscord.SiteParser do
   end
 
   defp get_general(doc, opts) do
-    with nil <- get_fragment_paragraph(doc, opts),
-         nil <- get_summary_opengraph(doc, opts),
-         nil <- get_summary_title_and_description(doc, opts),
-         # nil <- get_summary_opengraph(doc, opts),                                                                      
-         nil <- get_summary_first_paragraph(doc, opts),
-         nil <- get_summary_title(doc, opts),
+    with nil <- get_fragment_paragraph(doc, opts) |> IO.inspect(label: "Fragment Paragraph"),
+         nil <- get_summary_opengraph(doc, opts) |> IO.inspect(label: "Opengraph"),
+         nil <- get_summary_title_and_description(doc, opts) |> IO.inspect(label: "TitleDesc"),
+         nil <- get_summary_first_paragraph(doc, opts) |> IO.inspect(label: "First Paragraph"),
+         nil <- get_summary_title(doc, opts) |> IO.inspect(label: "Title"),
          do: nil
   end
 
@@ -242,10 +258,10 @@ defmodule Overdiscord.SiteParser do
     description = title && Meeseeks.one(doc, css("meta[property='og:description']"))
 
     cond do
-      title == nil ->
+      title not in [nil, ""] ->
         nil
 
-      description == nil ->
+      description not in [nil, ""] ->
         get_first_line_trimmed(Meeseeks.attr(title, "content"))
 
       true ->
@@ -261,8 +277,8 @@ defmodule Overdiscord.SiteParser do
 
         cond do
           title == description -> title
-          description == nil -> title
-          title == nil -> nil
+          description not in [nil, ""] -> title
+          title in [nil, ""] -> nil
           true -> "#{title} : #{description}"
         end
     end

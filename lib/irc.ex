@@ -897,24 +897,56 @@ defmodule Overdiscord.IRC.Bridge do
         end
       end)
 
+    msg =
+      msg
+      |> String.replace(~R/@?\bbear989\b|@?\bbear989sr\b|@?\bbear\b/i, "<@225728625238999050>")
+      |> String.replace(
+        ~R/@?\bqwertygiy\b|@?\bqwerty\b|@?\bqwertys\b|@?\bqwertz\b|@?\bqwertzs\b/i,
+        "<@80832726017511424>"
+      )
+      |> String.replace(~R/@?\bSuperCoder79\b/i, "<@222338097604460545>")
+      |> String.replace(~R/@?\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
+      |> String.replace(~R/@?\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
+      |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
+      |> String.replace(~R/@?\bnetmc\b/i, "<@185586090416013312>")
+      |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
+      |> String.replace(~R/@?\bdbp\b|@?\bdpb\b/i, "<@138742528051642369>")
+      |> String.replace(~R/@?\baxlegear\b/i, "<@226165192814362634>")
+      |> to_string()
+
+    msg =
+      Regex.replace(~R/:([a-zA-Z0-9_-]+):/, msg, fn full, emoji_name ->
+        case Alchemy.Cache.search(:emojis, &(&1.name == emoji_name)) do
+          [result | _] ->
+            to_string(result)
+
+          [] ->
+            with(
+              {:error, _} <- Alchemy.Cache.guild(alchemy_guild()),
+              do: Alchemy.Client.get_guild(alchemy_guild())
+            )
+            |> case do
+              {:ok, %{emojis: emojis}} ->
+                case Enum.filter(emojis, &(&1.name == emoji_name)) do
+                  [] -> full
+                  [result | _] -> to_string(result)
+                end
+
+              unknown_response ->
+                Logger.error(
+                  "Unhandled guild response in `convert_message_to_discord`: #{
+                    inspect(unknown_response)
+                  }"
+                )
+            end
+        end
+      end)
+
     msg
-    |> String.replace(~R/@?\bbear989\b|@?\bbear989sr\b|@?\bbear\b/i, "<@225728625238999050>")
-    |> String.replace(
-      ~R/@?\bqwertygiy\b|@?\bqwerty\b|@?\bqwertys\b|@?\bqwertz\b|@?\bqwertzs\b/i,
-      "<@80832726017511424>"
-    )
-    |> String.replace(~R/@?\bSuperCoder79\b/i, "<@222338097604460545>")
-    |> String.replace(~R/@?\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
-    |> String.replace(~R/@?\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
-    |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
-    |> String.replace(~R/@?\bnetmc\b/i, "<@185586090416013312>")
-    |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
-    |> String.replace(~R/@?\bdbp\b|@?\bdpb\b/i, "<@138742528051642369>")
-    |> String.replace(~R/@?\baxlegear\b/i, "<@226165192814362634>")
-    |> to_string()
   end
 
   def alchemy_channel(), do: "320192373437104130"
+  def alchemy_guild(), do: "225742287991341057"
 
   def send_msg_both(msgs, chan, client, opts \\ [])
 
@@ -1020,6 +1052,23 @@ defmodule Overdiscord.IRC.Bridge do
                 nil
             end
         end
+      end,
+      "emojis" => fn _cmd, _args, _auth, _chan, _state ->
+        guild =
+          with(
+            {:error, _} <- Alchemy.Cache.guild(alchemy_guild()),
+            do: Alchemy.Client.get_guild(alchemy_guild())
+          )
+
+        guild_emojis =
+          case guild do
+            {:ok, guild} -> Enum.map(guild.emojis, &":#{&1.name}:")
+            _ -> ["Discord not responding"]
+          end
+
+        [
+          "Guild Emojis: #{Enum.join(guild_emojis, ", ")}"
+        ]
       end,
       "feeds" => fn _cmd, args, auth, _chan, _state ->
         case args do
@@ -1136,9 +1185,11 @@ defmodule Overdiscord.IRC.Bridge do
       "yt" => fn _cmd, args, _auth, chan, state ->
         case String.trim(args) do
           "" ->
-            "Example:  ?yt someYtID"
+            "Example:  ?yt someYtID <anything-after-is-ignore>"
 
           id ->
+            [id | _rest] = String.split(id, " ", parts: 2)
+
             if Regex.match?(~R/[a-zA-Z0-9_-]{11}/, id) do
               url = "https://www.youtube.com/watch?v=#{id}"
 
@@ -1147,7 +1198,8 @@ defmodule Overdiscord.IRC.Bridge do
                   "Not an active YouTube ID"
 
                 summary ->
-                  send_msg_both(url <> "\n" <> summary, chan, state.client, discord: false)
+                  send_msg_both(url, chan, state.client)
+                  send_msg_both(summary, chan, state.client, discord: false)
               end
             else
               "Not a valid YouTube ID"
@@ -1184,7 +1236,7 @@ defmodule Overdiscord.IRC.Bridge do
                 "Unable to locate member_id of: #{args}"
 
               [%{user: %{id: id}}] ->
-                case Alchemy.Cache.presence("225742287991341057", id) do
+                case Alchemy.Cache.presence(alchemy_guild(), id) do
                   {:ok, %Alchemy.Guild.Presence{game: game, status: status}} ->
                     game = if(game == nil, do: "", else: " and is running #{game}")
 

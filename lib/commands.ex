@@ -200,25 +200,34 @@ defmodule Overdiscord.Commands do
         content
 
       {:ok, guild_id} ->
-        Regex.replace(~r/<@!?([0-9]+)>/, content, fn full, user_id ->
-          case Alchemy.Cache.member(guild_id, user_id) do
-            {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
-              "@#{username}"
+        content =
+          Regex.replace(~R/<@!?([0-9]+)>/, content, fn full, user_id ->
+            case Alchemy.Cache.member(guild_id, user_id) do
+              {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
+                "@#{username}"
 
-            v ->
-              case Alchemy.Client.get_member(guild_id, user_id) do
-                {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
-                  "@#{username}"
+              v ->
+                case Alchemy.Client.get_member(guild_id, user_id) do
+                  {:ok, %Alchemy.Guild.GuildMember{user: %{username: username}}} ->
+                    "@#{username}"
 
-                err ->
-                  IO.inspect(
-                    "Unable to get member of guild: #{inspect(v)}\n\tError: #{inspect(err)}"
-                  )
+                  err ->
+                    IO.inspect(
+                      "Unable to get member of guild: #{inspect(v)}\n\tError: #{inspect(err)}"
+                    )
 
-                  full
-              end
-          end
-        end)
+                    full
+                end
+            end
+          end)
+
+        content =
+          Regex.replace(~R/<:([a-zA-Z0-9_-]+):([0-9]+)>/, content, fn
+            _full, emoji_name, _emoji_id ->
+              ":#{emoji_name}:"
+          end)
+
+        content
     end
   end
 end
