@@ -899,6 +899,8 @@ defmodule Overdiscord.IRC.Bridge do
 
     msg =
       msg
+      |> String.replace(~R/@here\b/i, "@ here")
+      |> String.replace(~R/@everyone\b/i, "@ everyone")
       |> String.replace(~R/@?\bbear989\b|@?\bbear989sr\b|@?\bbear\b/i, "<@225728625238999050>")
       |> String.replace(
         ~R/@?\bqwertygiy\b|@?\bqwerty\b|@?\bqwertys\b|@?\bqwertz\b|@?\bqwertzs\b/i,
