@@ -218,7 +218,7 @@ defmodule Overdiscord.IRC.Bridge do
             :ok
 
           _oldpresence ->
-            case Overdiscord.SiteParser.get_summary("https://wwwn:w.youtube.com/c/aBear989/live") do
+            case Overdiscord.SiteParser.get_summary("https://www.youtube.com/c/aBear989/live") do
               nil ->
                 IO.inspect("No response from youtube!", label: :YoutubeError)
 
@@ -249,14 +249,14 @@ defmodule Overdiscord.IRC.Bridge do
                       #  state.client,
                       #  :privmsg,
                       #  "#gt-dev",
-                      #  "> If Bear989 is streaming then see it at: https://gaming.youtube.com/c/aBear989/live"
+                      #  "> If Bear989 is streaming then see it at: https://www.youtube.com/c/aBear989/live"
                       # )
 
                       [simple_summary | _] = String.split(summary, " - YouTube Gaming :")
                       IO.inspect(simple_summary, label: "BearUpdate")
                       # send_msg_both(simple_summary, "#gt-dev", state, discord: false)
                       send_msg_both(
-                        "Bear989 is now playing/streaming at https://gaming.youtube.com/c/aBear989/live #{
+                        "Bear989 is now playing/streaming at https://www.youtube.com/c/aBear989/live #{
                           simple_summary
                         }",
                         "#gt-dev",
