@@ -932,6 +932,13 @@ defmodule Overdiscord.IRC.Bridge do
     "\n---\n"
   end
 
+  def transform_earmark_ast_to_markdown({"code", _, body}) do
+    body = transform_earmark_ast_to_markdown(body)
+    count = Enum.count(String.graphemes(body), &(&1 == "`"))
+    delim = String.duplicate("`", div(count, 2))
+    delim <> body <> delim
+  end
+
   def transform_earmark_ast_to_markdown({"p", _, elems}) do
     transform_earmark_ast_to_markdown(elems) <> "\n"
   end
@@ -950,7 +957,7 @@ defmodule Overdiscord.IRC.Bridge do
           )
         end
 
-        IO.inspect(ast, label: :AST)
+        # IO.inspect(ast, label: :AST)
         transform_earmark_ast_to_markdown(ast)
 
       {:error, ast, error_messages} ->
@@ -958,10 +965,11 @@ defmodule Overdiscord.IRC.Bridge do
           Logger.warn("Earmark Error Messages: #{inspect(error_messages)}\n#{inspect(ast)}")
         end
 
-        IO.inspect(ast, label: :AST)
+        # IO.inspect(ast, label: :AST)
         transform_earmark_ast_to_markdown(ast)
     end
-    |> IO.inspect(label: :DOC)
+
+    # |> IO.inspect(label: :DOC)
   end
 
   def transform_string_to_discord(msg) do
