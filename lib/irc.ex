@@ -327,10 +327,35 @@ defmodule Overdiscord.IRC.Bridge do
 
             # RSS
             Meeseeks.one(doc, css("rss")) ->
-              data = %{
-                link: Meeseeks.text(Meeseeks.one(doc, css("channel item link"))),
-                title: Meeseeks.text(Meeseeks.one(doc, css("channel item title")))
-              }
+              {_sort, item} =
+                doc
+                |> Meeseeks.all(css("channel item"))
+                |> Enum.map(fn item ->
+                  case Meeseeks.one(item, css("pubDate")) do
+                    nil ->
+                      {0, item}
+
+                    date ->
+                      date = Meeseeks.text(date)
+
+                      case Timex.parse(date, "{RFC1123}") do
+                        {:ok, date} -> {-Timex.to_unix(date), item}
+                        _ -> {0, item}
+                      end
+                  end
+                end)
+                |> Enum.sort()
+                |> List.first()
+
+              data =
+                if item do
+                  %{
+                    link: Meeseeks.text(Meeseeks.one(item, css("link"))),
+                    title: Meeseeks.text(Meeseeks.one(item, css("title")))
+                  }
+                else
+                  %{link: nil, title: nil}
+                end
 
               Logger.info("RSS Feed Data: #{inspect(data)}")
 
@@ -1071,6 +1096,14 @@ defmodule Overdiscord.IRC.Bridge do
         [
           "Guild Emojis: #{Enum.join(guild_emojis, ", ")}"
         ]
+      end,
+      "udef" => fn _cmd, args, _auth, _chan, _state ->
+        case Overdiscord.SiteParser.get_summary_cached(
+               "https://www.urbandictionary.com/define.php?term=" <> args
+             ) do
+          nil -> "No definition found for: " <> args
+          defi -> defi
+        end
       end,
       "feeds" => fn _cmd, args, auth, _chan, _state ->
         case args do

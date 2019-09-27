@@ -41,7 +41,8 @@ defmodule Overdiscord.SiteParser do
 
     uri =
       case URI.parse(url) do
-        %{authority: yt} = uri when yt in ["youtube.com", "www.youtube.com", "youtu.be", "youtube.de"] ->
+        %{authority: yt} = uri
+        when yt in ["youtube.com", "www.youtube.com", "youtu.be", "youtube.de"] ->
           case uri.query do
             nil -> %{uri | query: "hl=en&disable_polymer=true"}
             "" -> %{uri | query: "hl=en&disable_polymer=true"}
@@ -81,8 +82,14 @@ defmodule Overdiscord.SiteParser do
       case status_code do
         code when code >= 400 and code <= 499 ->
           # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
-          # specifically and return empty here otherwise the message, just returning empty for now
-          "Page does not exist, code: #{code}"
+          case uri do
+            %{authority: "www.urbandictionary.com", path: "/define.php", query: "term=" <> word} ->
+              "#{word}: Has no definition"
+
+            _ ->
+              # specifically and return empty here otherwise the message, just returning empty for now
+              "Page does not exist, code: #{code}"
+          end
 
         # nil
 
@@ -314,10 +321,22 @@ defmodule Overdiscord.SiteParser do
             end)
   end
 
-  defp get_summary_first_paragraph(doc, _opts) do
-    with p when p != nil <- Meeseeks.one(doc, css("p")),
-         t when t != nil and t != "" <- Meeseeks.text(p) |> get_first_line_trimmed(),
-         do: t
+  defp get_summary_first_paragraph(doc, opts) do
+    case opts[:uri] do
+      %{authority: "www.urbandictionary.com", path: "/define.php", query: "term=" <> word} ->
+        with(
+          m when m != nil <- Meeseeks.one(doc, css(".meaning")),
+          r when r != nil and r != "" <- Meeseeks.text(m) |> get_first_line_trimmed(),
+          do: "#{word}: #{r}"
+        )
+
+      _ ->
+        with(
+          p when p != nil <- Meeseeks.one(doc, css("p")),
+          t when t != nil and t != "" <- Meeseeks.text(p) |> get_first_line_trimmed(),
+          do: t
+        )
+    end
   end
 
   defp get_first_line_trimmed(nil), do: nil
