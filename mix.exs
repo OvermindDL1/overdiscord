@@ -42,6 +42,7 @@ defmodule Overdiscord.Mixfile do
       {:cachex, "~> 3.0"},
       {:exsync, "~> 0.2", only: :dev},
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
+      {:earmark, "~> 1.4"},
       {:exleveldb, "~> 0.14"},
       {:gen_stage, "~> 0.14.2"},
       {:quantum, "~> 2.2"},

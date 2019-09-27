@@ -884,32 +884,120 @@ defmodule Overdiscord.IRC.Bridge do
     ExIRC.Client.stop!(state.client)
   end
 
+  def transform_earmark_ast_to_markdown(ast)
+
+  def transform_earmark_ast_to_markdown(list) when is_list(list) do
+    list
+    |> Enum.map(&transform_earmark_ast_to_markdown/1)
+    |> Enum.join("")
+  end
+
+  def transform_earmark_ast_to_markdown(string) when is_binary(string) do
+    transform_string_to_discord(string)
+  end
+
+  def transform_earmark_ast_to_markdown({"a", attrs, body}) do
+    IO.inspect({attrs, body}, label: :a)
+    first = List.first(body)
+    body = transform_earmark_ast_to_markdown(body)
+
+    case :proplists.get_value("href", attrs) do
+      nil -> body
+      "" -> body
+      ^first -> " " <> first
+      ^body -> " " <> body
+      href -> " [#{body}](#{href})"
+    end
+  end
+
+  def transform_earmark_ast_to_markdown({"blockquote", _, body}) do
+    body = transform_earmark_ast_to_markdown(body)
+    body = String.trim_trailing(body, "\n")
+    ">" <> String.replace(body, "\n", "\n> ")
+  end
+
+  def transform_earmark_ast_to_markdown({"strong", _, body}) do
+    "**" <> transform_earmark_ast_to_markdown(body) <> "**"
+  end
+
+  def transform_earmark_ast_to_markdown({"del", _, body}) do
+    "~~" <> transform_earmark_ast_to_markdown(body) <> "~~"
+  end
+
+  def transform_earmark_ast_to_markdown({"em", _, body}) do
+    "_" <> transform_earmark_ast_to_markdown(body) <> "_"
+  end
+
+  def transform_earmark_ast_to_markdown({"hr", _, []}) do
+    "\n---\n"
+  end
+
+  def transform_earmark_ast_to_markdown({"p", _, elems}) do
+    transform_earmark_ast_to_markdown(elems) <> "\n"
+  end
+
+  def transform_earmark_ast_to_markdown(unhandled) do
+    Logger.error("Unhandled Earmark AST Type: #{inspect(unhandled)}")
+    "{unhandled-markdown:<@240159434859479041>:#{inspect(unhandled)}}"
+  end
+
   def convert_message_to_discord(msg) do
+    case Earmark.as_ast(msg) do
+      {:ok, ast, deprecation_messages} ->
+        if deprecation_messages != [] do
+          Logger.warn(
+            "Earmark Deprecation Messages: #{inspect(deprecation_messages)}\n#{inspect(ast)}"
+          )
+        end
+
+        IO.inspect(ast, label: :AST)
+        transform_earmark_ast_to_markdown(ast)
+
+      {:error, ast, error_messages} ->
+        if error_messages != [] do
+          Logger.warn("Earmark Error Messages: #{inspect(error_messages)}\n#{inspect(ast)}")
+        end
+
+        IO.inspect(ast, label: :AST)
+        transform_earmark_ast_to_markdown(ast)
+    end
+    |> IO.inspect(label: :DOC)
+  end
+
+  def transform_string_to_discord(msg) do
     msg =
       Regex.replace(~R/([^<]|^)\B@!?([a-zA-Z0-9]+)\b/i, msg, fn full, pre, username ->
         down_username = String.downcase(username)
 
         try do
-          if down_username in ["everyone"] do
-            "#{pre}@ everyone"
-          else
-            case Alchemy.Cache.search(:members, fn
-                   %{user: %{username: ^username}} ->
-                     true
+          cond do
+            down_username in ["everyone"] ->
+              "@ everyone"
 
-                   %{user: %{username: discord_username}} ->
-                     down_username == String.downcase(discord_username)
+            down_username in ["all"] ->
+              "@ all"
 
-                   _ ->
-                     false
-                 end) do
-              [%{user: %{id: id}}] ->
-                [pre, ?<, ?@, id, ?>]
+            down_username in ["here"] ->
+              "@ here"
 
-              s ->
-                IO.inspect(s, label: :MemberNotFound)
-                full
-            end
+            :else ->
+              case Alchemy.Cache.search(:members, fn
+                     %{user: %{username: ^username}} ->
+                       true
+
+                     %{user: %{username: discord_username}} ->
+                       down_username == String.downcase(discord_username)
+
+                     _ ->
+                       false
+                   end) do
+                [%{user: %{id: id}}] ->
+                  [pre, ?<, ?@, id, ?>]
+
+                s ->
+                  IO.inspect(s, label: :MemberNotFound)
+                  full
+              end
           end
         rescue
           r ->
