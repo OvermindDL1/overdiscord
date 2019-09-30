@@ -42,6 +42,21 @@ defmodule Overdiscord.SiteParser do
     uri =
       case URI.parse(url) do
         %{authority: yt} = uri
+        when yt in ["m.youtube.com"] ->
+          host = "www.youtube.com"
+
+          case uri.query do
+            nil ->
+              %{uri | query: "hl=en&disable_polymer=true", authority: host, host: host}
+
+            "" ->
+              %{uri | query: "hl=en&disable_polymer=true", authority: host, host: host}
+
+            query ->
+              %{uri | query: query <> "&hl=en&disable_polymer=true", authority: host, host: host}
+          end
+
+        %{authority: yt} = uri
         when yt in ["youtube.com", "www.youtube.com", "youtu.be", "youtube.de"] ->
           case uri.query do
             nil -> %{uri | query: "hl=en&disable_polymer=true"}
