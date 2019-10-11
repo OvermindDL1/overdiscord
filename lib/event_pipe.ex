@@ -4,6 +4,8 @@ defmodule Overdiscord.EventPipe do
 
   alias Overdiscord.Storage
 
+  require Logger
+
   @hooks_db :eventpipe
   @hooks_key :hooks
   @hooks_backup_key :hooks_backup
@@ -82,8 +84,9 @@ defmodule Overdiscord.EventPipe do
   end
 
   def inject(possible_auth, event_data) when is_map(event_data) do
+    # IO.inspect({possible_auth, event_data}, label: EventInject)
     auth = Overdiscord.Auth.to_auth(possible_auth)
-    # IO.inspect({possible_auth, auth, event_data}, label: :EventInjection)
+    IO.inspect({possible_auth, auth, event_data}, label: :EventInjection)
 
     hooks_db = Storage.get_db(@hooks_db)
     matcher_data = %{auth: auth, event_data: event_data}
@@ -91,8 +94,9 @@ defmodule Overdiscord.EventPipe do
     arg = [auth, event_data]
 
     Storage.get(hooks_db, :list_sorted, @hooks_key)
+    # |> IO.inspect(label: :Hooks)
     |> Enum.each(fn {_priority, matcher, extra_matches, module, function, args} ->
-      if deep_match(matcher, matcher_data) do
+      if deep_match(matcher, matcher_data)|>IO.inspect(label: :Test) do
         extra_matches
         |> Enum.all?(fn
           {:permissions, permissions} ->
@@ -113,14 +117,15 @@ defmodule Overdiscord.EventPipe do
         |> if do
           try do
             apply(module, function, arg ++ args) || false
-          rescue
-            exc ->
-              IO.inspect({matcher, module, function, args, exc}, label: "HookException")
-              IO.puts(Exception.message(exc))
-              :error
+          #rescue
+          #  exc ->
+          #    IO.inspect({matcher, module, function, args, exc}, label: "HookException")
+          #    IO.puts(Exception.message(exc))
+          #    :error
           catch
-            error ->
-              IO.inspect({matcher, module, function, args, error}, label: "HookError")
+            kind, value ->
+              #IO.inspect({matcher, module, function, args, error}, label: "HookError")
+              Logger.error(Exception.format(kind, value, __STACKTRACE__))
               :error
           end
         else
@@ -130,16 +135,17 @@ defmodule Overdiscord.EventPipe do
         nil
       end
     end)
-  rescue
-    exc ->
-      IO.inspect(exc, label: "EventPipeException")
-      IO.puts(Exception.message(exc))
-      IO.inspect(__STACKTRACE__, label: :Stacktrace)
-      IO.puts(Exception.format_banner(:error, exc, __STACKTRACE__))
-      :error
+  #rescue
+  #  exc ->
+  #    IO.inspect(exc, label: "EventPipeException")
+  #    IO.puts(Exception.message(exc))
+  #    IO.inspect(__STACKTRACE__, label: :Stacktrace)
+  #    IO.puts(Exception.format_banner(:error, exc, __STACKTRACE__))
+  #    :error
   catch
-    error ->
-      IO.inspect(error, label: "EventPipeError")
+    kind, value ->
+      Logger.error(Exception.format(kind, value, __STACKTRACE__))
+      #IO.inspect(error, label: "EventPipeError")
       :error
   end
 

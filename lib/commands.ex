@@ -16,47 +16,48 @@ defmodule Overdiscord.Commands do
     nil
   end
 
+  # This is self, ignore all about self's messages
   def on_msg(%{author: %{id: "336892378759692289"}}) do
     discord_activity(:discord)
-    # Ignore bot message
+    # Ignore self bot message
     :ok
   end
 
   def on_msg(
         %{
           author: %{bot: _true_or_false, username: username},
-          channel_id: "320192373437104130",
+          channel_id: channel_id, # "320192373437104130",
           content: content
         } = msg
       ) do
     discord_activity(:discord)
     # TODO:  Definitely need to make a protocol to parse these event_data's out!
     # TODO:  Remove this `!` stuff to manage all messages so it is fully configurable
-    if not String.starts_with?(content, "!") and content != "",
-      do: Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
+    if not String.starts_with?(content, "!") and content != "" do
+      Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
+    end
 
-    case content do
-      "!list" ->
-        Overdiscord.IRC.Bridge.list_users()
+    if channel_id == "320192373437104130" do
+      case content do
+        "!list" -> Overdiscord.IRC.Bridge.list_users()
+        "!" <> _ ->       :ok
+        "" -> :ok
+        content ->
+          # IO.inspect("Msg dump: #{inspect msg}")
+          IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
+          # irc_content = get_msg_content_processed(msg)
+          #        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
 
-      "!" <> _ ->
-        :ok
-
-      content ->
-        # IO.inspect("Msg dump: #{inspect msg}")
-        IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
-        # irc_content = get_msg_content_processed(msg)
-        #        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
-
-        Enum.map(msg.attachments, fn %{
-                                       filename: filename,
-                                       size: size,
-                                       url: url,
-                                       proxy_url: _proxy_url
-                                     } = _attachment ->
-          size = Sizeable.filesize(size, spacer: "")
-          Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
-        end)
+          Enum.map(msg.attachments, fn %{
+            filename: filename,
+            size: size,
+            url: url,
+            proxy_url: _proxy_url
+                                   } = _attachment ->
+              size = Sizeable.filesize(size, spacer: "")
+            Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
+          end)
+      end
     end
   end
 
@@ -193,10 +194,10 @@ defmodule Overdiscord.Commands do
     end
   end
 
-  def get_msg_content_processed(%Alchemy.Message{channel_id: channel_id, content: content} = msg) do
+  def get_msg_content_processed(%Alchemy.Message{channel_id: channel_id, content: content} = _msg) do
     case Alchemy.Cache.guild_id(channel_id) do
-      {:error, reason} ->
-        IO.inspect("Unable to process guild_id: #{reason}\n\t#{msg}")
+      {:error, _reason} ->
+        # IO.inspect("Unable to process guild_id: #{reason}\n\t#{inspect msg}")
         content
 
       {:ok, guild_id} ->
