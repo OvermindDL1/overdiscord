@@ -893,6 +893,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def transform_earmark_ast_to_markdown(string) when is_binary(string) do
+    # TODO:  Escape markdown 'things'
     transform_string_to_discord(string)
   end
 
@@ -930,6 +931,16 @@ defmodule Overdiscord.IRC.Bridge do
 
   def transform_earmark_ast_to_markdown({"hr", _, []}) do
     "\n---\n"
+  end
+
+  def transform_earmark_ast_to_markdown({"pre", _, [{"code", _, body}]}) do
+    body = transform_earmark_ast_to_markdown(body) |> String.trim()
+    "    " <> String.replace(body, "\n", "\n    ")
+  end
+
+  def transform_earmark_ast_to_markdown({"pre", _, body}) do
+    body = transform_earmark_ast_to_markdown(body) |> String.trim()
+    "    " <> String.replace(body, "\n", "\n    ")
   end
 
   def transform_earmark_ast_to_markdown({"code", _, body}) do
@@ -973,6 +984,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def transform_string_to_discord(msg) do
+    # TODO:  Escape markdown 'things'
     msg =
       Regex.replace(~R/([^<]|^)\B@!?([a-zA-Z0-9]+)\b/i, msg, fn full, pre, username ->
         down_username = String.downcase(username)
