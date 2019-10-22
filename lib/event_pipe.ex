@@ -117,14 +117,14 @@ defmodule Overdiscord.EventPipe do
         |> if do
           try do
             apply(module, function, arg ++ args) || false
-          #rescue
-          #  exc ->
-          #    IO.inspect({matcher, module, function, args, exc}, label: "HookException")
-          #    IO.puts(Exception.message(exc))
-          #    :error
+            # rescue
+            #  exc ->
+            #    IO.inspect({matcher, module, function, args, exc}, label: "HookException")
+            #    IO.puts(Exception.message(exc))
+            #    :error
           catch
             kind, value ->
-              #IO.inspect({matcher, module, function, args, error}, label: "HookError")
+              # IO.inspect({matcher, module, function, args, error}, label: "HookError")
               Logger.error(Exception.format(kind, value, __STACKTRACE__))
               :error
           end
@@ -135,17 +135,18 @@ defmodule Overdiscord.EventPipe do
         nil
       end
     end)
-  #rescue
-  #  exc ->
-  #    IO.inspect(exc, label: "EventPipeException")
-  #    IO.puts(Exception.message(exc))
-  #    IO.inspect(__STACKTRACE__, label: :Stacktrace)
-  #    IO.puts(Exception.format_banner(:error, exc, __STACKTRACE__))
-  #    :error
+
+    # rescue
+    #  exc ->
+    #    IO.inspect(exc, label: "EventPipeException")
+    #    IO.puts(Exception.message(exc))
+    #    IO.inspect(__STACKTRACE__, label: :Stacktrace)
+    #    IO.puts(Exception.format_banner(:error, exc, __STACKTRACE__))
+    #    :error
   catch
     kind, value ->
       Logger.error(Exception.format(kind, value, __STACKTRACE__))
-      #IO.inspect(error, label: "EventPipeError")
+      # IO.inspect(error, label: "EventPipeError")
       :error
   end
 

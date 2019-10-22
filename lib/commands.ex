@@ -26,7 +26,8 @@ defmodule Overdiscord.Commands do
   def on_msg(
         %{
           author: %{bot: _true_or_false, username: username},
-          channel_id: channel_id, # "320192373437104130",
+          # "320192373437104130",
+          channel_id: channel_id,
           content: content
         } = msg
       ) do
@@ -39,9 +40,15 @@ defmodule Overdiscord.Commands do
 
     if channel_id == "320192373437104130" do
       case content do
-        "!list" -> Overdiscord.IRC.Bridge.list_users()
-        "!" <> _ ->       :ok
-        "" -> :ok
+        "!list" ->
+          Overdiscord.IRC.Bridge.list_users()
+
+        "!" <> _ ->
+          :ok
+
+        "" ->
+          :ok
+
         content ->
           # IO.inspect("Msg dump: #{inspect msg}")
           IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
@@ -49,12 +56,12 @@ defmodule Overdiscord.Commands do
           #        Overdiscord.IRC.Bridge.send_msg(username, irc_content)
 
           Enum.map(msg.attachments, fn %{
-            filename: filename,
-            size: size,
-            url: url,
-            proxy_url: _proxy_url
-                                   } = _attachment ->
-              size = Sizeable.filesize(size, spacer: "")
+                                         filename: filename,
+                                         size: size,
+                                         url: url,
+                                         proxy_url: _proxy_url
+                                       } = _attachment ->
+            size = Sizeable.filesize(size, spacer: "")
             Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
           end)
       end

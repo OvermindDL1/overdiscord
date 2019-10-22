@@ -285,7 +285,7 @@ defmodule Overdiscord.SiteParser do
       title in [nil, ""] ->
         nil
 
-      #description not in [nil, ""] ->
+      # description not in [nil, ""] ->
       #  get_first_line_trimmed(Meeseeks.attr(title, "content"))
 
       true ->

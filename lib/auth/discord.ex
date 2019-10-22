@@ -10,10 +10,12 @@ defimplEx Discord, %Alchemy.Message{}, for: Overdiscord.Auth do
 
     %Overdiscord.Auth.AuthData{
       server: {:Discord, server_id},
-      id: case msg.author.id do # TODO: Look this up from a shared cache?
-            "240159434859479041" -> "OvermindDL1"
-            id -> "D-#{id}"
-          end,
+      # TODO: Look this up from a shared cache?
+      id:
+        case msg.author.id do
+          "240159434859479041" -> "OvermindDL1"
+          id -> "D-#{id}"
+        end,
       location: msg.channel_id,
       username: msg.author.id,
       nickname: msg.author.username,
