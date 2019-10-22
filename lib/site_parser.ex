@@ -71,6 +71,8 @@ defmodule Overdiscord.SiteParser do
     opts = [uri: uri] ++ opts
     url = URI.to_string(uri)
 
+    IO.inspect(opts, label: :SiteParser_FullOpts)
+
     if String.contains?(url, [".zip", ".png", ".gif"]) do
       IO.puts("Skipped url")
       nil
@@ -280,11 +282,11 @@ defmodule Overdiscord.SiteParser do
     description = title && Meeseeks.one(doc, css("meta[property='og:description']"))
 
     cond do
-      title not in [nil, ""] ->
+      title in [nil, ""] ->
         nil
 
-      description not in [nil, ""] ->
-        get_first_line_trimmed(Meeseeks.attr(title, "content"))
+      #description not in [nil, ""] ->
+      #  get_first_line_trimmed(Meeseeks.attr(title, "content"))
 
       true ->
         title =
@@ -299,8 +301,8 @@ defmodule Overdiscord.SiteParser do
 
         cond do
           title == description -> title
-          description not in [nil, ""] -> title
           title in [nil, ""] -> nil
+          description in [nil, ""] -> title
           true -> "#{title} : #{description}"
         end
     end
