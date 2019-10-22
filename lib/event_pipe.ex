@@ -86,7 +86,7 @@ defmodule Overdiscord.EventPipe do
   def inject(possible_auth, event_data) when is_map(event_data) do
     # IO.inspect({possible_auth, event_data}, label: EventInject)
     auth = Overdiscord.Auth.to_auth(possible_auth)
-    IO.inspect({possible_auth, auth, event_data}, label: :EventInjection)
+    # IO.inspect({possible_auth, auth, event_data}, label: :EventInjection)
 
     hooks_db = Storage.get_db(@hooks_db)
     matcher_data = %{auth: auth, event_data: event_data}
@@ -96,7 +96,7 @@ defmodule Overdiscord.EventPipe do
     Storage.get(hooks_db, :list_sorted, @hooks_key)
     # |> IO.inspect(label: :Hooks)
     |> Enum.each(fn {_priority, matcher, extra_matches, module, function, args} ->
-      if deep_match(matcher, matcher_data)|>IO.inspect(label: :Test) do
+      if deep_match(matcher, matcher_data) do
         extra_matches
         |> Enum.all?(fn
           {:permissions, permissions} ->

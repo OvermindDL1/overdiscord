@@ -9,13 +9,17 @@ defimplEx IRC, {chan, %ExIRC.SenderInfo{}, %Overdiscord.IRC.Bridge.State{}} when
 
     %Overdiscord.Auth.AuthData{
       server: {:IRC, "#{state.host}##{state.nick}"},
+      id: case senderinfo do
+            %{host: "6.ip-144-217-164.net", user: "~OvermindD"} -> "OvermindDL1"
+            _ -> "I-#{user}"
+          end,
       location: chan,
       username: user,
       nickname: nick,
       permissions: fn _action ->
         case senderinfo do
           # OvermindDL1
-          %{user: "~uid16796"} ->
+          %{host: "6.ip-144-217-164.net", user: "~OvermindD"} ->
             true
 
           # Greg

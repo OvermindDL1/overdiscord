@@ -4,6 +4,7 @@ defimplEx Console, :console, for: Overdiscord.Auth do
   def to_auth(:console) do
     %Overdiscord.Auth.AuthData{
       server: :console,
+      id: "0",
       location: "<CONSOLE>",
       username: "<CONSOLE>",
       nickname: "<CONSOLE>",
@@ -16,6 +17,7 @@ defimplEx ConsoleNamed, {:console, name} when is_binary(name), for: Overdiscord.
   def to_auth({:console, name}) do
     %Overdiscord.Auth.AuthData{
       server: :console,
+      id: "#{name}",
       location: "<CONSOLE>",
       username: "<CONSOLE>",
       nickname: name,

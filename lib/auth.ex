@@ -1,7 +1,7 @@
 import ProtocolEx
 
 defmodule Overdiscord.Auth.AuthData do
-  defstruct [:server, :location, :username, :nickname, :permissions]
+  defstruct [:server, :location, :username, :nickname, :permissions, id: nil]
 end
 
 defprotocol_ex Overdiscord.Auth do

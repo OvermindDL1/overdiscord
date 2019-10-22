@@ -20,7 +20,7 @@
       <td><%= inspect username %></td>
       <td><%= inspect nickname %></td>
       <td style="white-space:nowrap">
-        Admin: <%= permissions.(:admin) %>
+        Admin: <%#= permissions.(:admin) %>
       </td>
       <td><%= inspect event_data %></td>
     </tr><% end %>
