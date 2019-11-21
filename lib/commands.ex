@@ -8,7 +8,47 @@ defmodule Overdiscord.Commands do
   def send_event(auth, %{msg: msg}, to) do
     msg = Overdiscord.IRC.Bridge.convert_message_to_discord(msg)
     # Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")
-    Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
+    if to == "320192373437104130" do
+      wh = Overdiscord.IRC.Bridge.alchemy_webhook()
+      username = auth.nickname
+      down_username = String.downcase(username)
+
+      try do
+        Alchemy.Cache.search(:members, fn
+          %{user: %{username: ^username}} ->
+            true
+
+          %{user: %{username: discord_username}} ->
+            down_username == String.downcase(discord_username)
+
+          _ ->
+            false
+        end)
+      rescue
+        _ -> []
+      catch
+        _ -> []
+      end
+      |> case do
+        [%{user: %{id: id, avatar: avatar}}] when avatar not in [nil, ""] ->
+          avatar_url = "https://cdn.discordapp.com/avatars/#{id}/#{avatar}.jpg?size=128"
+          Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: avatar_url)
+
+        _ ->
+          case username do
+            "GregoriusTechneticies" ->
+              aurl =
+                "https://forum.gregtech.overminddl1.com/user_avatar/forum.gregtech.overminddl1.com/gregorius/120/29_2.png"
+
+              Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: aurl)
+
+            _ ->
+              Alchemy.Webhook.send(wh, {:content, msg}, username: username)
+          end
+      end
+    else
+      Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
+    end
   end
 
   def send_event(auth, event_data, to) do
@@ -32,21 +72,23 @@ defmodule Overdiscord.Commands do
         } = msg
       ) do
     discord_activity(:discord)
+    # IO.inspect(msg, label: :DiscordMsg)
+
+    %{id: wh_id} = Overdiscord.IRC.Bridge.alchemy_webhook()
     # TODO:  Definitely need to make a protocol to parse these event_data's out!
     # TODO:  Remove this `!` stuff to manage all messages so it is fully configurable
-    if not String.starts_with?(content, "!") and content != "" do
+    # Ignore self webhook
+    if not String.starts_with?(content, "!") and content != "" and msg.webhook_id != wh_id do
       Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
     end
 
-    if channel_id == "320192373437104130" do
+    # Ignore self webhook
+    if channel_id == "320192373437104130" and msg.webhook_id != wh_id do
       case content do
         "!list" ->
           Overdiscord.IRC.Bridge.list_users()
 
         "!" <> _ ->
-          :ok
-
-        "" ->
           :ok
 
         content ->
@@ -62,6 +104,7 @@ defmodule Overdiscord.Commands do
                                          proxy_url: _proxy_url
                                        } = _attachment ->
             size = Sizeable.filesize(size, spacer: "")
+            IO.inspect({filename, size, url}, label: "Sending attachment")
             Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
           end)
       end
@@ -77,13 +120,19 @@ defmodule Overdiscord.Commands do
     discord_activity(:discord)
     IO.inspect(embeds, label: :BotEdit)
 
-    Enum.map(embeds, fn %{title: title, description: description} ->
-      IO.inspect(
-        "Discord embed bot back to IRC: #{title} - #{description}",
-        label: :DiscordBotEdit
-      )
+    Enum.map(embeds, fn
+      %{title: title, description: description, url: url} when is_binary(url) ->
+        IO.inspect("Discord embed bot url back to IRC: #{title} - #{description} - #{url}",
+          label: :DiscordBotEdit
+        )
 
-      # Overdiscord.IRC.Bridge.send_msg(nil, "#{title} - #{description}")
+      %{title: title, description: description} ->
+        IO.inspect(
+          "Discord embed bot back to IRC: #{title} - #{description}",
+          label: :DiscordBotEdit
+        )
+
+        # Overdiscord.IRC.Bridge.send_msg(nil, "#{title} - #{description}")
     end)
   end
 

@@ -42,7 +42,7 @@ defmodule Overdiscord.Mixfile do
       {:cachex, "~> 3.0"},
       {:exsync, "~> 0.2", only: :dev},
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
-      {:earmark, "~> 1.4"},
+      {:earmark, "~> 1.4.2"},
       {:exleveldb, "~> 0.14"},
       {:gen_stage, "~> 0.14.2"},
       {:quantum, "~> 2.2"},
@@ -61,7 +61,8 @@ defmodule Overdiscord.Mixfile do
       # {:html5ever, "~> 0.6.1"},
       {:floki, "~> 0.21.0"},
       {:drab, "~> 0.10.1"},
-      {:gh_webhook_plug, "~> 0.0.5"}
+      {:gh_webhook_plug, "~> 0.0.5"},
+      {:decimal, "~> 1.8"}
     ]
   end
 end

@@ -25,6 +25,39 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
           ],
           callback: {__MODULE__, :handle_cmd_start, []}
         },
+        "cheat" => %{
+          description: "Cheating",
+          args: 0,
+          strict: [
+            player: :string
+          ],
+          aliases: [
+            p: :player
+          ],
+          sub_parsers: %{
+            "amt" => %{
+              description: "Set a resource value",
+              args: 2,
+              strict: [],
+              aliases: [],
+              callback: {__MODULE__, :handle_cmd_cheat, []}
+            },
+            "max" => %{
+              description: "Set a resource storage value",
+              args: 2,
+              strict: [],
+              aliases: [],
+              callback: {__MODULE__, :handle_cmd_cheat, []}
+            },
+            "fill" => %{
+              description: "fill up listed resources or all if none listed",
+              args: 0..99,
+              strict: [],
+              aliases: [],
+              callback: {__MODULE__, :handle_cmd_cheat, []}
+            }
+          }
+        },
         "status" => %{
           args: 0,
           strict: [
@@ -47,7 +80,7 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
         "info" => %{
           args: 1,
           strict: [],
-          callback: {__MODULE__, :handle_cmd_info, []},
+          callback: {__MODULE__, :handle_cmd_info, []}
         },
         "build" => %{
           args: 0..1,
@@ -86,21 +119,29 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
     end
   end
 
-  def handle_cmd_info(%{auth: auth, args: [item]} = parsed) do
+  def handle_cmd_info(%{auth: auth, args: [item]} = _parsed) do
     game = Game.get!(auth)
+
     case Game.get_construction(game, item, true) do
-      nil -> "Nothing found for the name `#{item}`"
+      nil ->
+        "Nothing found for the name `#{item}`"
+
       construction ->
         costs =
           (construction[:cost] || [])
           |> Enum.map(fn {name, amt} -> "#{name}:#{amt}" end)
           |> Enum.join(" ")
-        desc = if(construction[:description] != nil, do: (costs == "" && "" || "\n> ") <> construction[:description])
+
+        desc =
+          if(construction[:description] != nil,
+            do: ((costs == "" && "") || "\n> ") <> construction[:description]
+          )
+
         "> `#{item}`: #{costs}#{desc}"
     end
   end
 
-  def handle_cmd_status(%{auth: auth} = parsed) do
+  def handle_cmd_status(%{auth: auth} = _parsed) do
     # IO.inspect(parsed, label: :handle_cmd_status)
 
     case Game.get(auth) do
@@ -109,7 +150,8 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
 
       game ->
         res = Game.get_resources(game)
-        Game.save(game) # Save the processed tick update
+        # Save the processed tick update
+        Game.save(game)
 
         [
           "Player `#{auth.id}` game: ",
@@ -123,15 +165,75 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
     end
   end
 
-  def handle_cmd_reset(%{auth: auth, params: params, args: args} = parsed) do
+  def handle_cmd_cheat(%{auth: auth, cmds: cmds, args: args, params: params}) do
+    id = params[:player] || auth.id
+
+    if !auth.permissions.(Game.key(id)) do
+      "Do not have access to cheats for player: `#{id}`"
+    else
+      game = Game.get!(id)
+
+      case tl(tl(cmds)) do
+        [] ->
+          "Please specify cheat to use"
+
+        [cmd] when cmd in ["amt", "max"] ->
+          [res, value] = args
+
+          case Integer.parse(value) do
+            {value, ""} ->
+              resource = Game.get_resource(game, res)
+
+              resource =
+                case cmd do
+                  "amt" -> %{resource | amt: value}
+                  "max" -> %{resource | max: value}
+                end
+
+              game = Game.set_resource(game, res, resource)
+              Game.save(game)
+              "Set resource `#{res}` #{cmd} to: `#{value}`"
+
+            _ ->
+              "Invalid value, must be an integer"
+          end
+
+        ["fill"] ->
+          case args do
+            [] ->
+              Game.get_resources(game)
+              |> Enum.reduce(game, fn {res, resource}, game ->
+                Game.set_resource(game, res, %{resource | amt: resource.max})
+              end)
+              |> Game.save()
+
+              "CHEAT: Filled up all resources for player `#{id}`"
+
+            ress ->
+              ress
+              |> Enum.reduce(game, fn res, game ->
+                case Game.get_resource(game, res) do
+                  %{max: 0} -> game
+                  resource -> Game.set_resource(game, res, %{resource | amt: resource.max})
+                end
+              end)
+              |> Game.save()
+
+              "CHEAT: Filled up listed resources for player `#{id}`"
+          end
+      end
+    end
+  end
+
+  def handle_cmd_reset(%{auth: auth, params: params, args: args} = _parsed) do
     # IO.inspect(parsed, label: :handle_cmd_reset)
     id = List.first(args) || auth.id
 
     cond do
       id != auth.id && !auth.permissions.(Game.key(id)) ->
-        "Do not have access to reset the game for player `#{id}`"
+        "Do not have access to reset the game for player: `#{id}`"
 
-      not Game.exists?(id) ->
+      not Game.exists?(id, notick: true) ->
         "Player `#{id}` doesn't have an active game."
 
       !params[:confirm] ->
@@ -237,7 +339,7 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
 
   defmodule Game do
     defmodule Resource do
-      defstruct amt: 0, partial: 0.0, max: 0
+      defstruct amt: 0, max: 10
 
       def new(res) do
         max =
@@ -251,13 +353,12 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
     end
 
     defimpl String.Chars, for: Resource do
-      def to_string(%{amt: amt, partial: partial, max: max}) do
-        partial = if(partial === 0.0, do: "", else: tl(Float.to_charlist(partial)))
-        "#{amt}#{partial}/#{max}"
+      def to_string(%{amt: amt, max: max}) do
+        "#{amt}/#{max}"
       end
     end
 
-    defstruct id: nil, last_updated_at: NaiveDateTime.utc_now(), resources: %{}
+    defstruct id: nil, last_updated_at: Timex.to_unix(NaiveDateTime.utc_now()), resources: %{}
 
     def id(%{id: id}), do: id(id)
     def id(%{auth: auth}), do: id(auth)
@@ -267,10 +368,10 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
       {:game, :resource, :player, id(id)}
     end
 
-    def get(auth, _opts \\ []) do
+    def get(auth, opts \\ []) do
       case Storage.get(:games, :kv, key(auth), nil) do
         nil -> nil
-        %__MODULE__{} = game -> tick(game)
+        %__MODULE__{} = game -> (opts[:notick] && game) || tick(game)
       end
     end
 
@@ -306,42 +407,133 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
       Storage.delete(:games, :kv, key(auth))
     end
 
-    defp get_time_offset_mod(last, now, mod) do
-      delta = now - last
-      get_time_offset_mod(last, now, delta, mod)
-    end
-    defp get_time_offset_mod(last, now, delta, mod) do
+    # defp get_time_offset_mod(last, now, mod) do
+    #  delta = now - last
+    #  get_time_offset_mod(last, now, delta, mod)
+    # end
+    defp get_time_offset_mod(last, _now, delta, mod) do
       amt = div(delta, mod)
       leftover = rem(delta, mod)
       offset = rem(last, mod)
-      extra = div(offset + leftover, mod) # TODO: Is this math correct?  Can it be simplified?
+      # TODO: Is this math correct?  Can it be simplified?
+      extra = div(offset + leftover, mod)
       amt + extra
     end
 
+    # def requires(game, %{requires: requires}), do: requires(game, requires)
+    # def requires(game, res) when is_binary(res) do
+    #  get_resource(game, res).amt
+    # end
+    # def requires(game, {:notfull, res}) do
+    #  %{amt: amt, max: max} = get_resource(game, res)
+    #  Decimal.cmp(amt, max) != :lt
+    # end
+    # def requires(game, {op, left, right}) when op in [:<, :>, :<=, :>=, :==, :!=, :and, :or] do
+    #  left = requires(game, left)
+    #  right = requires(game, right)
+    #  case op do
+    #    :< -> left < right
+    #    :> -> left > right
+    #    :<= -> left <= right
+    #    :>= -> left >= right
+    #    :== -> left == right
+    #    :!= -> left != right
+    #    :and -> left and right
+    #    :or -> left or right
+    #  end
+    # end
+    # def requires(game, {:or, elems}) do
+    #  Enum.any?(elems, &requires(game, &1))
+    # end
+    # def requires(game, {:and, elems}) do
+    #  Enum.all?(elems, &requires(game, &1))
+    # end
+
+    defmacrop ddiv(n, d), do: Macro.escape(Decimal.div(n, d))
+
     def tickables() do
-      [
-        %{},
-      ]
+      %{
+        dog_join: %{
+          multi: [],
+          costs: %{"dogbed" => ddiv(1, 10)},
+          gives: %{"dog" => ddiv(1, 10)}
+        },
+        dog_search_grass: %{
+          multi: ["dog"],
+          costs: %{},
+          gives: %{"grass" => 1}
+        },
+        dog_search_sticks: %{
+          multi: ["dog"],
+          costs: %{},
+          gives: %{"sticks" => 1}
+        }
+      }
     end
 
-    def tick(game) do
+    defp tick_combine(game, name, mult, {res, value}, acc) when is_integer(value) and value > 0 do
+      value = value * mult
+      acc = Map.update(acc, res, value, &(&1 + value))
+      IO.inspect({name, res, value, acc})
+      acc
+    end
+
+    def tick(game, now \\ Timex.to_unix(NaiveDateTime.utc_now())) do
       last = game.last_updated_at
-      now = Timex.to_unix(NaiveDateTime.utc_now())
       delta = now - last
 
       if delta > 0 do
-        # TODO:  Convert this to the tickables format
-        game = case get_resource(game, "dog") do
-                 %{max: 0} -> game
-                 %{amt: max, max: max} -> game
-                 %{amt: amt, max: max} when amt < max ->
-                   case min(get_time_offset_mod(last, now, delta, 60), max - amt) do
-                     0 -> game
-                     times ->
-                       add_resource(game, "dog", times)
-                   end
-               end
+        {m, r, a} =
+          tickables()
+          |> Enum.reduce({%{}, %{}, %{}}, fn
+            {name, %{tickrate: tickrate, multi: multi, costs: costs, gives: gives}}, {m, r, a} ->
+              case get_time_offset_mod(last, now, delta, tickrate) do
+                times when times <= 0 ->
+                  {m, r, a}
+
+                times ->
+                  mult =
+                    (multi == [] && 1) ||
+                      Enum.reduce(multi, 0, &Decimal.add(&2, get_resource(game, &1).amt))
+
+                  mult |> IO.inspect(label: :Mult)
+
+                  m =
+                    List.flatten([multi, Map.keys(costs), Map.keys(gives)])
+                    |> Enum.reduce(m, &Map.update(&2, &1, [name], fn _, v, a -> [v | a] end))
+
+                  r = Enum.reduce(costs, r, &tick_combine(game, name, mult, &1, &2))
+                  a = Enum.reduce(gives, a, &tick_combine(game, name, mult, &1, &2))
+                  {m, r, a}
+              end
+          end)
+
+        changes =
+          r
+          |> Map.new(&{elem(&1, 0), -elem(&1, 1)})
+          |> Map.merge(a, fn _k, r, a -> r + a end)
+
+        process_time =
+          Enum.reduce(changes, delta, fn {res, change}, time ->
+            nil
+          end)
+
+        changes
+        |> IO.inspect(label: :Tickable_Changes)
+
         %{game | last_updated_at: now}
+
+        # game = case get_resource(game, "dog") do
+        #         %{max: 0} -> game
+        #         %{amt: max, max: max} -> game
+        #         %{amt: amt, max: max} when amt < max ->
+        #           case min(get_time_offset_mod(last, now, delta, 60), max - amt) do
+        #             0 -> game
+        #             times ->
+        #               add_resource(game, "dog", times)
+        #           end
+        #       end
+        # %{game | last_updated_at: now}
       else
         game
       end
@@ -350,7 +542,6 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
     def get_resources(game) do
       game.resources
       |> Enum.filter(fn {_res, data} ->
-        # data.amt > 0 or data.partial > 0.0
         data.max > 0
       end)
     end
@@ -362,7 +553,28 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
       end
     end
 
-    def update_resource(game, res, resource) do
+    # Unit: 1
+    def has_resource_space(game, res, count) do
+      case game.resources[res] do
+        nil -> 0
+        %{max: 0} -> 0
+        %{amt: max, max: max} -> 0
+        %{amt: amt, max: max} when amt + 1 >= max -> 0
+        %{amt: amt, max: max} -> min(max - amt, count)
+      end
+    end
+
+    def has_resource_space(game, res, count, unit) when is_integer(unit) and unit >= 1 do
+      case game.resources[res] do
+        nil -> 0
+        %{max: 0} -> 0
+        %{amt: max, max: max} -> 0
+        %{amt: amt, max: max} when amt + unit >= max -> 0
+        %{amt: amt, max: max} -> min(div(max - amt, unit), count)
+      end
+    end
+
+    def set_resource(game, res, resource) do
       %{game | resources: Map.put(game.resources, res, resource)}
     end
 
@@ -381,18 +593,14 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
 
         true ->
           amt = min(resource.amt, max)
-          partial = if(amt === max, do: 0.0, else: resource.partial)
-          resource = %{resource | max: max, amt: amt, partial: partial}
-          {:ok, update_resource(game, res, resource), resource}
+          resource = %{resource | max: max, amt: amt}
+          {:ok, set_resource(game, res, resource), resource}
       end
     end
 
-    def add_resource(game, res, amt, partial \\ 0.0)
-        when amt >= 0 and partial >= 0.0 and partial < 1.0 do
+    def add_resource(game, res, amt) when amt >= 0 do
       resource = get_resource(game, res)
       amt = resource.amt + amt
-      partial = resource.partial + partial
-      {amt, partial} = if(partial >= 1.0, do: {amt + 1, partial - 1.0}, else: {amt, partial})
 
       cond do
         resource.max === 0 ->
@@ -402,34 +610,27 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
           {:error, res <> " is too full"}
 
         amt > resource.max ->
-          resource = %{resource | amt: resource.max, partial: 0.0}
+          resource = %{resource | amt: resource.max}
           amt = amt - resource.max
-          {:ok, update_resource(game, res, resource), resource, amt, partial}
-
-        amt === resource.max and partial > 0.0 ->
-          resource = %{resource | partial: 0.0}
-          {:ok, update_resource(game, res, resource), resource, 0, partial}
+          {:ok, set_resource(game, res, resource), resource, amt}
 
         true ->
-          resource = %{resource | amt: amt, partial: partial}
-          {:ok, update_resource(game, res, resource), resource}
+          resource = %{resource | amt: amt}
+          {:ok, set_resource(game, res, resource), resource}
       end
     end
 
-    def use_resource(game, res, amt, partial \\ 0.0)
-        when amt >= 0 and partial >= 0.0 and partial < 1.0 do
+    def use_resource(game, res, amt) when amt >= 0 do
       resource = get_resource(game, res)
       amt = resource.amt - amt
-      partial = resource.partial - partial
-      {amt, partial} = if(partial < 0.0, do: {amt - 1, partial + 1.0}, else: {amt, partial})
 
       cond do
         amt < 0 ->
           {:error, "not enough " <> res}
 
         true ->
-          resource = %{resource | amt: amt, partial: partial}
-          {:ok, update_resource(game, res, resource), resource}
+          resource = %{resource | amt: amt}
+          {:ok, set_resource(game, res, resource), resource}
       end
     end
 
@@ -448,32 +649,32 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
             {:max_resource, "dirt", 10},
             {:max_resource, "grass", 10},
             {:max_resource, "sticks", 10},
-            {:max_resource, "stone", 10},
-          ],
+            {:max_resource, "stone", 10}
+          ]
         },
         "basket" => %{
           description: "Increases possible yield when `search`ing for each basket",
           cost: %{"grass" => 15, "sticks" => 15},
           requires: [
             {:>, {:resource, "hut"}, 0},
-            {:<, {:resource, "basket"}, 2},
+            {:<, {:resource, "basket"}, 2}
           ],
           effects: [
             {:if, {:==, :max_resource, 0}, {:max_resource, 2}},
             {:add_resource, 1},
-            {:if, {:==, {:max_resource, "dogbed"}, 0}, {:max_resource, "dogbed", 10}},
-          ],
+            {:if, {:==, {:max_resource, "dogbed"}, 0}, {:max_resource, "dogbed", 10}}
+          ]
         },
         "dogbed" => %{
           description: "Makes a dog bed, which will attract a dog",
           cost: %{"dirt" => 40, "grass" => 30, "sticks" => 10, "stone" => 40},
           requires: [
-            {:>, {:max_resource, "dogbed"}, {:resource, "dogbed"}},
+            {:>, {:max_resource, "dogbed"}, {:resource, "dogbed"}}
           ],
           effects: [
             {:resource, 1},
-            {:max_resource, "dog", 1},
-          ],
+            {:max_resource, "dog", 1}
+          ]
         }
       }
     end
@@ -481,15 +682,19 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
     defp construction_is_allowed(game, {name, %{requires: requires} = data}) do
       Enum.all?(requires, &construction_is_allowed(game, {name, data}, &1))
     end
+
     defp construction_is_allowed(_game, _nc) do
       false
     end
 
     defp construction_is_allowed(game, name_construct, requirement)
-    defp construction_is_allowed(game, _nc, :never), do: false
-    defp construction_is_allowed(game, nc, {op, left, right}) when op in [:<, :>, :<=, :>=, :!=, :==] do
+    defp construction_is_allowed(_game, _nc, :never), do: false
+
+    defp construction_is_allowed(game, nc, {op, left, right})
+         when op in [:<, :>, :<=, :>=, :!=, :==] do
       left = construction_is_allowed_expr(game, nc, left)
       right = construction_is_allowed_expr(game, nc, right)
+
       case op do
         :< -> left < right
         :> -> left > right
@@ -502,15 +707,19 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
 
     defp construction_is_allowed_expr(game, name_construct, expr)
     defp construction_is_allowed_expr(_game, _nc, int) when is_integer(int), do: int
+
     defp construction_is_allowed_expr(game, {name, _construction}, :resource) do
       get_resource(game, name).amt
     end
+
     defp construction_is_allowed_expr(game, {name, _construction}, :max_resource) do
       get_resource(game, name).max
     end
+
     defp construction_is_allowed_expr(game, _nc, {:resource, res}) do
       get_resource(game, res).amt
     end
+
     defp construction_is_allowed_expr(game, _nc, {:max_resource, res}) do
       get_resource(game, res).max
     end
@@ -546,7 +755,11 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
         end)
         |> case do
           %__MODULE__{} = game ->
-            construct_effect(game, {name, construction}, List.wrap(construction[:effects] || [:todo]))
+            construct_effect(
+              game,
+              {name, construction},
+              List.wrap(construction[:effects] || [:todo])
+            )
 
           reason when is_binary(reason) ->
             {:error, reason}
@@ -555,29 +768,48 @@ defmodule Overdiscord.Hooks.Commands.GameResource do
     end
 
     defp construct_effect(game, name_construction, effect)
-    defp construct_effect(game, nc, []), do: {:ok, game}
+    defp construct_effect(game, _nc, []), do: {:ok, game}
+
     defp construct_effect(game, nc, [head | tail]) do
       case construct_effect(game, {name, _construct} = nc, head) do
-        {:ok, game} -> {:ok, game}
-        {:ok, game, _} -> {:ok, game}
-        {:ok, game, _, 0} -> {:ok, game}
-        {:ok, game, _, leftover} -> {:error, "#{name} does not have enough space to put in resources, missing `#{leftover}` space"}
-        {:error, reason} when is_binary(reason) -> {:error, reason}
+        {:ok, game} ->
+          {:ok, game}
+
+        {:ok, game, _} ->
+          {:ok, game}
+
+        {:ok, game, _, 0} ->
+          {:ok, game}
+
+        {:ok, _game, _, leftover} ->
+          {:error,
+           "#{name} does not have enough space to put in resources, missing `#{leftover}` space"}
+
+        {:error, reason} when is_binary(reason) ->
+          {:error, reason}
       end
       |> case do
-           {:error, reason} -> {:error, reason}
-           {:ok, game} -> construct_effect(game, nc, tail)
-         end
+        {:error, reason} -> {:error, reason}
+        {:ok, game} -> construct_effect(game, nc, tail)
+      end
     end
-    defp construct_effect(game, {name, _con}, {:add_resource, amt}), do: add_resource(game, name, amt)
-    defp construct_effect(game, {name, _con}, {:max_resource, max}), do: max_resource(game, name, max)
+
+    defp construct_effect(game, {name, _con}, {:add_resource, amt}),
+      do: add_resource(game, name, amt)
+
+    defp construct_effect(game, {name, _con}, {:max_resource, max}),
+      do: max_resource(game, name, max)
+
     defp construct_effect(game, _, {:add_resource, res, amt}), do: add_resource(game, res, amt)
     defp construct_effect(game, _, {:max_resource, res, max}), do: max_resource(game, res, max)
+
     defp construct_effect(game, nc, ift) when elem(ift, 0) == :if do
-      {pred, th, el} = case ift do
-                         {:if, pred, th} -> {pred, List.wrap(th), []}
-                         {:if, pred, th, el} -> {pred, List.wrap(th), List.wrap(el)}
-                       end
+      {pred, th, el} =
+        case ift do
+          {:if, pred, th} -> {pred, List.wrap(th), []}
+          {:if, pred, th, el} -> {pred, List.wrap(th), List.wrap(el)}
+        end
+
       if construction_is_allowed(game, nc, pred) do
         construct_effect(game, nc, th)
       else

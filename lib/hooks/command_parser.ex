@@ -215,7 +215,7 @@ defmodule Overdiscord.Hooks.CommandParser do
           end)
           |> Enum.sort()
 
-        subs = if(subs == [], do: "", else: "\n\t" <> Enum.join(subs, "\n\t"))
+        subs = if(subs == [], do: "", else: "\n\t\t" <> Enum.join(subs, "\n\t\t"))
         "\t`#{self}#{req}#{opt}`#{help}#{params}#{subs}"
 
       [self | [next | _] = rest] ->
@@ -309,6 +309,7 @@ defmodule Overdiscord.Hooks.CommandParser do
          unparsed_args,
          _opts
        ) do
+    # IO.inspect({req, opt, args, parsed_params, parsed_args, parsed_cmds}, label: :ParsingDashes)
     args_length = length(args)
 
     cond do
@@ -323,15 +324,15 @@ defmodule Overdiscord.Hooks.CommandParser do
          %{
            params: parsed_params,
            args: Enum.reverse(parsed_args, args),
-           cmds:
-             Enum.reverse(parsed_cmds,
-               callback: cb,
-               auth: auth,
-               unparsed_args: unparsed_args,
-               parser: parser
-             )
+           cmds: Enum.reverse(parsed_cmds),
+           callback: cb,
+           auth: auth,
+           unparsed_args: unparsed_args,
+           parser: parser
          }}
     end
+
+    # |> IO.inspect(label: :ParsingDashesReturn)
   end
 
   defp handle_option_parser_cmd(
@@ -374,16 +375,20 @@ defmodule Overdiscord.Hooks.CommandParser do
         {:error, "#{escape_inline_code(key)} is not a valid switch for this command"}
 
       {:error, []} ->
-        {:ok,
-         %{
-           params: parsed_params,
-           args: Enum.reverse(parsed_args),
-           cmds: Enum.reverse(parsed_cmds),
-           callback: cb,
-           auth: auth,
-           unparsed_args: unparsed_args,
-           parser: parser
-         }}
+        if req == 0 do
+          {:ok,
+           %{
+             params: parsed_params,
+             args: Enum.reverse(parsed_args),
+             cmds: Enum.reverse(parsed_cmds),
+             callback: cb,
+             auth: auth,
+             unparsed_args: unparsed_args,
+             parser: parser
+           }}
+        else
+          {:error, "Missing required arguments"}
+        end
 
       {:error, [subcmd | args]} ->
         if req == 0 do
@@ -468,5 +473,7 @@ defmodule Overdiscord.Hooks.CommandParser do
           )
         end
     end
+
+    # |> IO.inspect(label: :ParsingReturn)
   end
 end

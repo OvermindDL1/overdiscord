@@ -32,6 +32,8 @@ defmodule Overdiscord.SiteParser do
 
   def get_summary(url, opts \\ %{recursion_limit: 4})
 
+  def get_summary("http://demosthenes.org" <> _url, _opts), do: "No, bad Demosthenex!"
+
   def get_summary(_url, %{recursion_limit: -1}) do
     "URL recursed HTTP 3xx status codes too many times (>4), this is a *bad* site setup and should be reported to the URL owner"
   end
@@ -105,7 +107,10 @@ defmodule Overdiscord.SiteParser do
 
             _ ->
               # specifically and return empty here otherwise the message, just returning empty for now
-              "Page does not exist, code: #{code}"
+              case code do
+                403 -> "Page not allowed to be accessed, code: #{code}"
+                _ -> "Page does not exist, code: #{code}"
+              end
           end
 
         # nil

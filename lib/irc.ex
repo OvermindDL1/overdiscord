@@ -294,8 +294,15 @@ defmodule Overdiscord.IRC.Bridge do
     # ])
     db_get(state, :kv, :feed_links)
     |> List.wrap()
-    |> Enum.each(fn url ->
-      Logger.info("Fetching feed at:  #{url}")
+    |> IO.inspect(label: :AllFeeds)
+    |> Enum.each(fn meta_url ->
+      {url, category} =
+        case String.split(meta_url, " ", parts: 2) do
+          [url] -> {url, nil}
+          [url, category] -> {String.trim(url), String.trim(category)}
+        end
+
+      Logger.info("Fetching feed at:  #{meta_url}")
 
       case HTTPoison.get(url) do
         {:error, reason} ->
@@ -310,11 +317,40 @@ defmodule Overdiscord.IRC.Bridge do
 
           cond do
             # Atom
-            Meeseeks.one(doc, css("feed")) ->
+            feed = Meeseeks.one(doc, css("feed")) ->
+              title =
+                try do
+                  with(
+                    entry when entry != nil <- Meeseeks.one(feed, css("entry")),
+                    true <-
+                      if category == nil do
+                        true
+                      else
+                        atom_category =
+                          Meeseeks.attr(Meeseeks.one(entry, css("category")), "term")
+
+                        Logger.info("Feed Category Found: #{atom_category}")
+                        category == atom_category
+                      end,
+                    title when title != nil <- Meeseeks.one(entry, css("title")),
+                    nil <- Meeseeks.text(Meeseeks.one(title, css("[type=\"text\"]"))),
+                    nil <-
+                      Meeseeks.one(title, css("[type=\"html\"]"))
+                      |> Meeseeks.text()
+                      |> Meeseeks.parse()
+                      |> Meeseeks.one(css("*"))
+                      |> Meeseeks.text(),
+                    do: nil
+                  )
+                rescue
+                  e -> IO.puts(Exception.format(:error, e, __STACKTRACE__))
+                catch
+                  e -> IO.puts(Exception.format(:error, e, __STACKTRACE__))
+                end
+
               data = %{
-                link: Meeseeks.attr(Meeseeks.one(doc, css("feed > entry > link[href]")), "href"),
-                title:
-                  Meeseeks.text(Meeseeks.one(doc, css("feed > entry > title[type=\"text\"]")))
+                link: Meeseeks.attr(Meeseeks.one(feed, css("feed > entry > link[href]")), "href"),
+                title: title
               }
 
               Logger.info("Atom Feed Data: #{inspect(data)}")
@@ -375,7 +411,7 @@ defmodule Overdiscord.IRC.Bridge do
               nil
 
             data ->
-              case db_get(state, :kv, {:feed_link, url}) do
+              case db_get(state, :kv, {:feed_link, meta_url}) do
                 # No change
                 ^data ->
                   Logger.info("Feed data unchanged from database")
@@ -386,7 +422,7 @@ defmodule Overdiscord.IRC.Bridge do
                     "Feed data changed:\n\tOld: #{inspect(old_data)}\n\tNew: #{inspect(data)}"
                   )
 
-                  db_put(state, :kv, {:feed_link, url}, data)
+                  db_put(state, :kv, {:feed_link, meta_url}, data)
               end
           end
       end
@@ -482,8 +518,6 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:connected, _server, _port}, state) do
     IO.inspect("connecting bridge...", label: "State")
-    # TODO:  Blegh!  Check if ExIRC has a better way here, because what on earth...
-    # Process.sleep(5000)
     IO.inspect("Connect should be complete", label: "State")
 
     spawn(fn ->
@@ -550,7 +584,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_info({:joined, "#gt-dev" = chan}, state) do
     state = %{state | ready: true}
-    send_msg_both("#{state.nick} has re-joined", chan, state.client, irc: false)
+    send_msg_both("_#{state.nick} has joined IRC_", chan, state.client, irc: false)
     ExIRC.Client.who(state.client, "#gt-dev")
     {:noreply, state}
   end
@@ -608,14 +642,14 @@ defmodule Overdiscord.IRC.Bridge do
     spawn(fn ->
       Overdiscord.EventPipe.inject({chan, auth, state}, %{
         action: action,
-        msg: "#{nick} #{action}"
+        msg: "_#{action}_"
       })
     end)
 
     action = convert_message_to_discord(action)
     IO.inspect("Sending emote From IRC to Discord: **#{nick}** #{action}", label: "State")
     # Alchemy.Client.send_message("320192373437104130", "_**#{nick}** #{action}_")
-    dispatch_msg("#{nick} #{action}")
+    dispatch_msg("_#{action}_")
     message_extra(:me, action, auth, chan, state)
     {:noreply, state}
   end
@@ -954,6 +988,30 @@ defmodule Overdiscord.IRC.Bridge do
     transform_earmark_ast_to_markdown(elems) <> "\n"
   end
 
+  def transform_earmark_ast_to_markdown({"ol", opts, branches}) do
+    start = :proplists.get_value("start", opts, "1") |> String.to_integer()
+
+    branches
+    |> Enum.with_index(start)
+    |> Enum.map(fn {branch, idx} ->
+      idx = "#{idx}. "
+      prefix = String.duplicate(" ", String.length(idx))
+
+      body =
+        branch
+        |> transform_earmark_ast_to_markdown()
+        |> String.trim()
+        |> String.replace("\n", "\n#{prefix}")
+
+      idx <> body
+    end)
+    |> Enum.join("\n")
+  end
+
+  def transform_earmark_ast_to_markdown({"li", [], body}) do
+    transform_earmark_ast_to_markdown(body)
+  end
+
   def transform_earmark_ast_to_markdown(unhandled) do
     Logger.error("Unhandled Earmark AST Type: #{inspect(unhandled)}")
     "{unhandled-markdown:<@240159434859479041>:#{inspect(unhandled)}}"
@@ -981,6 +1039,8 @@ defmodule Overdiscord.IRC.Bridge do
     end
 
     # |> IO.inspect(label: :DOC)
+  catch
+    _ -> msg
   end
 
   def transform_string_to_discord(msg) do
@@ -1083,6 +1143,26 @@ defmodule Overdiscord.IRC.Bridge do
   def alchemy_channel(), do: "320192373437104130"
   def alchemy_guild(), do: "225742287991341057"
 
+  def alchemy_webhook_url(),
+    do:
+      unquote(
+        System.get_env("OVERDISCORD_WEBHOOK_BEARIRC") ||
+          throw("Set `OVERDISCORD_WEBHOOK_BEARIRC`")
+      )
+
+  def alchemy_webhook do
+    unquote(
+      case System.get_env("OVERDISCORD_WEBHOOK_BEARIRC") do
+        nil ->
+          throw("Set `OVERDISCORD_WEEBHOOK_BEARIRC`")
+
+        "https://discordapp.com/api/webhooks/" <> data ->
+          [wh_id, wh_token] = String.split(data, "/", parts: 2)
+          Macro.escape(%Alchemy.Webhook{id: wh_id, token: wh_token})
+      end
+    )
+  end
+
   def send_msg_both(msgs, chan, client, opts \\ [])
 
   def send_msg_both(msgs, chan, %{client: client}, opts) do
@@ -1091,6 +1171,8 @@ defmodule Overdiscord.IRC.Bridge do
 
   def send_msg_both(msgs, chan, client, opts) do
     prefix = opts[:prefix] || "> "
+
+    opts = if(client == nil, do: [{:irc, false} | opts], else: opts)
 
     if opts[:irc] != false do
       msgs
@@ -1132,7 +1214,13 @@ defmodule Overdiscord.IRC.Bridge do
           |> convert_message_to_discord()
         end
 
-      Alchemy.Client.send_message(alchemy_channel(), amsg)
+      case opts[:name] do
+        nil ->
+          Alchemy.Client.send_message(alchemy_channel(), amsg)
+
+        name when is_binary(name) ->
+          Alchemy.Webhook.send(alchemy_webhook(), {:content, amsg}, username: name)
+      end
     end
 
     nil
@@ -1232,6 +1320,7 @@ defmodule Overdiscord.IRC.Bridge do
             feeds =
               db_get(state, :kv, :feed_links)
               |> List.wrap()
+              |> Enum.map(&to_string/1)
               |> Enum.join("\n\t")
 
             "Feeds:\n\t" <> feeds
@@ -1249,7 +1338,7 @@ defmodule Overdiscord.IRC.Bridge do
               not is_binary(uri.host) and is_binary(uri.path) and uri.scheme in ["http", "https"] ->
                 "Not a valid URL for tracking"
 
-              not Enum.member?(urls, url) ->
+              Enum.member?(urls, url) ->
                 "Already exists as a feed URL: #{url}"
 
               true ->
@@ -1281,6 +1370,7 @@ defmodule Overdiscord.IRC.Bridge do
                     "No exact matching URL's found for `#{url}`, maybe you meant: #{found}"
 
                   new_urls ->
+                    db_put(state, :kv, :feed_links, Enum.sort(new_urls))
                     "Removed: #{Enum.join(urls -- new_urls, ",")}"
                 end
             end
