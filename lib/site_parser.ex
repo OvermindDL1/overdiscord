@@ -41,7 +41,7 @@ defmodule Overdiscord.SiteParser do
   def get_summary(url, opts) do
     IO.inspect({url, opts})
 
-    uri =
+    {is_yt, uri} =
       case URI.parse(url) do
         %{authority: yt} = uri
         when yt in ["m.youtube.com"] ->
@@ -49,25 +49,26 @@ defmodule Overdiscord.SiteParser do
 
           case uri.query do
             nil ->
-              %{uri | query: "hl=en&disable_polymer=true", authority: host, host: host}
+              {true, %{uri | query: "hl=en&disable_polymer=true", authority: host, host: host}}
 
             "" ->
-              %{uri | query: "hl=en&disable_polymer=true", authority: host, host: host}
+              {true, %{uri | query: "hl=en&disable_polymer=true", authority: host, host: host}}
 
             query ->
-              %{uri | query: query <> "&hl=en&disable_polymer=true", authority: host, host: host}
+              {true,
+               %{uri | query: query <> "&hl=en&disable_polymer=true", authority: host, host: host}}
           end
 
         %{authority: yt} = uri
         when yt in ["youtube.com", "www.youtube.com", "youtu.be", "youtube.de"] ->
           case uri.query do
-            nil -> %{uri | query: "hl=en&disable_polymer=true"}
-            "" -> %{uri | query: "hl=en&disable_polymer=true"}
-            query -> %{uri | query: query <> "&hl=en&disable_polymer=true"}
+            nil -> {true, %{uri | query: "hl=en&disable_polymer=true"}}
+            "" -> {true, %{uri | query: "hl=en&disable_polymer=true"}}
+            query -> {true, %{uri | query: query <> "&hl=en&disable_polymer=true"}}
           end
 
         others ->
-          others
+          {false, others}
       end
 
     opts = [uri: uri] ++ opts
@@ -127,26 +128,53 @@ defmodule Overdiscord.SiteParser do
           end
 
         200 ->
-          case url |> String.downcase() |> String.replace(~r|^https?://|, "") do
-            "bash.org/" <> _ ->
-              get_bash_summary(Meeseeks.parse(body), opts)
+          cond do
+            is_yt ->
+              doc = Meeseeks.parse(body)
 
-            "git.gregtech.overminddl1.com/" <> _ ->
-              get_git(Meeseeks.parse(body), url, ".L", opts)
+              case get_general(doc, opts) do
+                result when is_binary(result) ->
+                  case String.trim(
+                         to_string(
+                           Meeseeks.text(
+                             Meeseeks.one(doc, css(".unsubscribe-confirmation-message"))
+                           )
+                         )
+                       ) do
+                    "" ->
+                      result
 
-            "github.com/" <> _ ->
-              get_git(Meeseeks.parse(body), url, "#LC", opts)
+                    "Unsubscribe from " <> rest ->
+                      channel_name = String.trim_trailing(rest, "?")
+                      "#{channel_name}: #{result}"
+                  end
 
-            _unknown ->
-              case :proplists.get_value("Content-Type", headers) do
-                :undefined ->
-                  nil
+                otherwise ->
+                  otherwise
+              end
 
-                "image" <> _ ->
-                  nil
+            :else ->
+              case url |> String.downcase() |> String.replace(~r|^https?://|, "") do
+                "bash.org/" <> _ ->
+                  get_bash_summary(Meeseeks.parse(body), opts)
 
-                _ ->
-                  get_general(Meeseeks.parse(body), opts)
+                "git.gregtech.overminddl1.com/" <> _ ->
+                  get_git(Meeseeks.parse(body), url, ".L", opts)
+
+                "github.com/" <> _ ->
+                  get_git(Meeseeks.parse(body), url, "#LC", opts)
+
+                _unknown ->
+                  case :proplists.get_value("Content-Type", headers) do
+                    :undefined ->
+                      nil
+
+                    "image" <> _ ->
+                      nil
+
+                    _ ->
+                      get_general(Meeseeks.parse(body), opts)
+                  end
               end
           end
 

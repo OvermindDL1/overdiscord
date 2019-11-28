@@ -36,14 +36,21 @@ defmodule Overdiscord.Commands do
 
         _ ->
           case username do
-            "GregoriusTechneticies" ->
-              aurl =
-                "https://forum.gregtech.overminddl1.com/user_avatar/forum.gregtech.overminddl1.com/gregorius/120/29_2.png"
-
-              Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: aurl)
+            # "GregoriusTechneticies" ->
+            #  aurl =
+            #    "https://forum.gregtech.overminddl1.com/user_avatar/forum.gregtech.overminddl1.com/gregorius/120/29_2.png"
+            #  Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: aurl)
 
             _ ->
-              Alchemy.Webhook.send(wh, {:content, msg}, username: username)
+              db = Overdiscord.IRC.Bridge.get_db()
+
+              case Overdiscord.IRC.Bridge.db_get(db, :kv, {:discord_avatar, username}) do
+                nil ->
+                  Alchemy.Webhook.send(wh, {:content, msg}, username: username)
+
+                aurl ->
+                  Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: aurl)
+              end
           end
       end
     else

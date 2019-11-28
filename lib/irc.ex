@@ -1099,7 +1099,7 @@ defmodule Overdiscord.IRC.Bridge do
         ~R/@?\bqwertygiy\b|@?\bqwerty\b|@?\bqwertys\b|@?\bqwertz\b|@?\bqwertzs\b/i,
         "<@80832726017511424>"
       )
-      |> String.replace(~R/@?\bSuperCoder79\b/i, "<@222338097604460545>")
+      |> String.replace(~R/@?\bSuperCoder79\b|\bsc79\b/i, "<@222338097604460545>")
       |> String.replace(~R/@?\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
       |> String.replace(~R/@?\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
       |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
@@ -1299,6 +1299,64 @@ defmodule Overdiscord.IRC.Bridge do
              ) do
           nil -> "No definition found for: " <> args
           defi -> defi
+        end
+      end,
+      "discordavatar" => fn _cmd, args, auth, _chan, state ->
+        is_admin = is_admin(auth)
+
+        case String.split(args, " ", parts: 3) do
+          [""] ->
+            "?discordavatar (get)|(set <url>) -> Set URL to 'nil' to clear"
+
+          ["get"] ->
+            case db_get(state, :kv, {:discord_avatar, auth.nick}) do
+              nil -> "No avatar URL override set"
+              url -> "Override URL: #{url}"
+            end
+
+          ["get", nickname] ->
+            case db_get(state, :kv, {:discord_avatar, nickname}) do
+              nil -> "No avatar URL override set"
+              url -> "Override URL: #{url}"
+            end
+
+          ["set"] ->
+            {:set, nil, auth.nick}
+
+          ["set", "nil"] ->
+            {:set, nil, auth.nick}
+
+          ["set", url] ->
+            {:set, url, auth.nick}
+
+          ["set", nickname, "nil"] when is_admin ->
+            {:set, nil, nickname}
+
+          ["set", nickname, url] when is_admin ->
+            {:set, url, nickname}
+
+          _ ->
+            "Invalid entry"
+        end
+        |> case do
+          msg when is_binary(msg) ->
+            msg
+
+          {:set, nil, nickname} ->
+            db_delete(state, :kv, {:discord_avatar, nickname})
+            "Deleted override URL"
+
+          {:set, url, nickname} ->
+            case URI.parse(url) do
+              %URI{scheme: scheme, host: host, path: path} = uri
+              when scheme in ["http", "https"] and is_binary(host) and is_binary(path) ->
+                uri = URI.to_string(uri)
+                db_put(state, :kv, {:discord_avatar, nickname}, uri)
+                "Set override avatar URL to: #{uri}"
+
+              _ ->
+                "Invalid URL"
+            end
         end
       end,
       "feeds" => fn _cmd, args, auth, _chan, _state ->
