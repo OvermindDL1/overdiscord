@@ -1503,12 +1503,12 @@ defmodule Overdiscord.IRC.Bridge do
       "wiki" => fn _cmd, args, _auth, chan, state ->
         url = IO.inspect("https://en.wikipedia.org/wiki/#{URI.encode(args)}", label: "Lookup")
         message_cmd_url_with_summary(url, chan, state.client)
-        nil
+        url
       end,
       "ftbwiki" => fn _cmd, args, _auth, chan, state ->
         url = IO.inspect("https://ftb.gamepedia.com/#{URI.encode(args)}", label: "Lookup")
         message_cmd_url_with_summary(url, chan, state.client)
-        nil
+        url
       end,
       "eval-lua" => fn _cmd, args, _auth, chan, state ->
         lua_eval_msg(state, chan, args)
@@ -2247,7 +2247,7 @@ defmodule Overdiscord.IRC.Bridge do
   end
 
   def message_cmd_url_with_summary(url, chan, client) do
-    ExIRC.Client.msg(client, :privmsg, chan, url)
+    # ExIRC.Client.msg(client, :privmsg, chan, url)
 
     case IO.inspect(Overdiscord.SiteParser.get_summary_cached(url), label: :UrlSummary) do
       nil -> "No information found at URL"
