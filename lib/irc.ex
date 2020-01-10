@@ -1008,6 +1008,13 @@ defmodule Overdiscord.IRC.Bridge do
     |> Enum.join("\n")
   end
 
+  def transform_earmark_ast_to_markdown({"ul", [], branches}) do
+    branches
+    |> Enum.map(&transform_earmark_ast_to_markdown/1)
+    |> Enum.map(&["* " | &1])
+    |> Enum.join("\n")
+  end
+
   def transform_earmark_ast_to_markdown({"li", [], body}) do
     transform_earmark_ast_to_markdown(body)
   end
@@ -1220,6 +1227,7 @@ defmodule Overdiscord.IRC.Bridge do
 
         name when is_binary(name) ->
           Alchemy.Webhook.send(alchemy_webhook(), {:content, amsg}, username: name)
+          |> IO.inspect(label: :WebhookSendResult)
       end
     end
 
@@ -1357,6 +1365,26 @@ defmodule Overdiscord.IRC.Bridge do
               _ ->
                 "Invalid URL"
             end
+        end
+      end,
+      "presence" => fn _cmd, args, _auth, _chan, _state ->
+        name = String.trim(args)
+
+        case Alchemy.Cache.search(:members, &(&1.user.username == name)) do
+          [] ->
+            "`#{name}`` is not found in Discord cache"
+
+          [%{user: %{id: uid}}] ->
+            case Alchemy.Cache.presence(alchemy_guild(), uid) do
+              {:ok, %{game: game, status: status}} ->
+                "`#{name}` is in `#{game}` with status `#{status}`"
+
+              {:error, reason} when is_binary(reason) ->
+                "Failed to get presence for `#{name}` because: #{reason}"
+            end
+
+          _ ->
+            "Multiple `#{name}` were found?"
         end
       end,
       "feeds" => fn _cmd, args, auth, _chan, _state ->

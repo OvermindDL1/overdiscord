@@ -32,7 +32,9 @@ defmodule Overdiscord.Commands do
       |> case do
         [%{user: %{id: id, avatar: avatar}}] when avatar not in [nil, ""] ->
           avatar_url = "https://cdn.discordapp.com/avatars/#{id}/#{avatar}.jpg?size=128"
+
           Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: avatar_url)
+          |> IO.inspect(label: DiscordWebhookSendResult)
 
         _ ->
           case username do
