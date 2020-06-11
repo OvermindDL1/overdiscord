@@ -1114,6 +1114,7 @@ defmodule Overdiscord.IRC.Bridge do
       |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
       |> String.replace(~R/@?\bdbp\b|@?\bdpb\b/i, "<@138742528051642369>")
       |> String.replace(~R/@?\baxlegear\b/i, "<@226165192814362634>")
+      |> String.replace(~R/@?\bbart\b/i, "<@258399730302844928>")
       |> to_string()
 
     msg =
