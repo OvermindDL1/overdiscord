@@ -2559,7 +2559,7 @@ defmodule Overdiscord.IRC.Bridge do
 
         db_put(state, :kv, {:feed_link, :last, url}, acquired_data)
 
-        send_msg_both("Feed: #{link} #{title}", "#gt-dev", state.client)
+        send_msg_both("Feed#{pings}: #{link} #{title}", "#gt-dev", state.client)
     end
   end
 
