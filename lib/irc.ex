@@ -1518,7 +1518,8 @@ defmodule Overdiscord.IRC.Bridge do
 
             case Enum.split_with(
                    pings,
-                   &(elem(&1, 1) == "" or Enum.member?(searches, elem(&1, 1)))
+                   &(elem(&1, 0) == nick and
+                       (elem(&1, 1) == "" or Enum.member?(searches, elem(&1, 1))))
                  ) do
               {[], _pings} ->
                 "No matching feedspecs for `#{nick}` to remove"
