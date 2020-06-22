@@ -1462,6 +1462,89 @@ defmodule Overdiscord.IRC.Bridge do
                 end
             end
 
+          "ping" ->
+            "Subcommands:\n  add <nick> {feedmatches} -> feedmatch can be left out to subscribe to all\n  delete <nick> {feedmatches}\n  <nick> -> List pings for nick"
+
+          "ping add " <> args ->
+            is_admin(auth) || throw({:NOT_ALLOWED, "`#{auth.nick}` is not an admin"})
+            [nick | searches] = args |> String.split() |> Enum.map(&String.trim/1)
+            searches = (searches == [] && [""]) || searches
+            pings = List.wrap(db_get(state, :kv, :feed_pings))
+
+            pings
+            |> Enum.filter(
+              &(elem(&1, 0) == nick and (Enum.member?(searches, elem(&1, 1)) or elem(&1, 1) == ""))
+            )
+            |> case do
+              [] ->
+                {"", searches}
+
+              already ->
+                already = already |> Enum.map(&elem(&1, 1))
+
+                msg =
+                  "FeedMatch's already exists for `#{nick}`: \"" <>
+                    Enum.join(already, "\", \"") <> "\"\n"
+
+                searches =
+                  Enum.reject(searches, &(Enum.member?(already, &1) or Enum.member?(already, "")))
+
+                {msg, searches}
+            end
+            |> case do
+              {msg, []} ->
+                msg
+
+              {msg, [""]} ->
+                pings = Enum.reject(pings, &(elem(&1, 0) == nick))
+                pings = [{nick, ""} | pings]
+                db_put(state, :kv, :feed_pings, Enum.sort(pings))
+                msg <> "Added FeedMatches for `#{nick}`: \"\""
+
+              {msg, searches} ->
+                pings = Enum.map(searches, &{nick, &1}) ++ pings
+
+                db_put(state, :kv, :feed_pings, Enum.sort(pings))
+
+                msg <>
+                  "Added FeedMatches for `#{nick}`: \"" <> Enum.join(searches, "\", \"") <> "\""
+            end
+
+          "ping delete " <> args ->
+            is_admin(auth) || throw({:NOT_ALLOWED, "`#{auth.nick}` is not an admin"})
+            [nick | searches] = args |> String.split() |> Enum.map(&String.trim/1)
+            pings = List.wrap(db_get(state, :kv, :feed_pings))
+
+            case Enum.split_with(
+                   pings,
+                   &(elem(&1, 1) == "" or Enum.member?(searches, elem(&1, 1)))
+                 ) do
+              {[], _pings} ->
+                "No matching feedspecs for `#{nick}` to remove"
+
+              {removed, pings} ->
+                db_put(state, :kv, :feed_pings, pings)
+
+                "Removed FeedMatches for `#{nick}`: \"" <>
+                  Enum.join(Enum.map(removed, &elem(&1, 1)), "\", \"") <> "\""
+            end
+
+          "ping " <> nick ->
+            nick = String.trim(nick)
+
+            db_get(state, :kv, :feed_pings)
+            |> IO.inspect()
+            |> List.wrap()
+            |> Enum.filter(&(elem(&1, 0) == nick))
+            |> case do
+              [] ->
+                "No matches found for `#{nick}`"
+
+              matches ->
+                "Found matches for `#{nick}`: \"" <>
+                  (matches |> Enum.map(&elem(&1, 1)) |> Enum.join("\", \"")) <> "\""
+            end
+
           search ->
             with(
               urls <- db_get(state, :kv, :feed_links),
@@ -2262,7 +2345,7 @@ defmodule Overdiscord.IRC.Bridge do
     end
   rescue
     exc ->
-      IO.puts("COMMAND_EXCEPTION" <> Exception.format(:error, exc))
+      IO.puts("COMMAND_EXCEPTION" <> Exception.format(:error, exc, __STACKTRACE__))
 
       send_msg_both(
         "Exception in command execution, report this to OvermindDL1",
@@ -2270,6 +2353,9 @@ defmodule Overdiscord.IRC.Bridge do
         state.client
       )
   catch
+    {:NOT_ALLOWED, reason} ->
+      send_msg_both("Not allowed to perform that command: #{reason}", chan, state.client)
+
     e ->
       IO.inspect(e, label: :COMMAND_CRASH)
       send_msg_both("Crash in command execution, report this to OvermindDL1", chan, state.client)
@@ -2456,7 +2542,22 @@ defmodule Overdiscord.IRC.Bridge do
           }"
         )
 
+        pings =
+          db_get(state, :kv, :feed_pings)
+          |> List.wrap()
+          |> Enum.filter(
+            &(String.contains?(link, elem(&1, 1)) or String.contains?(title, elem(&1, 1)))
+          )
+          |> case do
+            [] ->
+              ""
+
+            pings ->
+              "(" <> (pings |> Enum.map(&elem(&1, 0)) |> Enum.dedup() |> Enum.join(", ")) <> ")"
+          end
+
         db_put(state, :kv, {:feed_link, :last, url}, acquired_data)
+
         send_msg_both("Feed: #{link} #{title}", "#gt-dev", state.client)
     end
   end
