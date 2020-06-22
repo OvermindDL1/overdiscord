@@ -1398,7 +1398,7 @@ defmodule Overdiscord.IRC.Bridge do
               "?feeds list -> Lists Feed URLs",
               is_admin && "?feeds add <url> -> Adds a new Feed url to track",
               is_admin && "?feeds remove <url> -> Removes a Feed url from tracking",
-              "?feeds <urlpart> -> Searching first URL that matches selection and shows it"
+              "?feeds <urlpart> -> Searches for the first URL that matches the selection and shows it"
             ]
             |> Enum.filter(& &1)
             |> Enum.join("\n")
