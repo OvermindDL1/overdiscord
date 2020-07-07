@@ -5,6 +5,19 @@ defmodule Overdiscord.Commands do
 
   def send_event(auth, event_data, to)
 
+  def send_event(auth, %{msg_discord: msg}, to) do
+    case msg do
+      %Alchemy.Embed{} = embed ->
+        Alchemy.Client.send_message(to, "", embed: embed, tts: false)
+
+      {msg, %Alchemy.Embed{} = embed} when is_binary(msg) ->
+        Alchemy.Client.send_message(to, msg, embed: embed, tts: false)
+
+      msg when is_binary(msg) ->
+        Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
+    end
+  end
+
   def send_event(auth, %{msg: msg}, to) do
     msg = Overdiscord.IRC.Bridge.convert_message_to_discord(msg)
     # Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")

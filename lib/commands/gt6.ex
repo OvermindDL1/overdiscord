@@ -9,6 +9,14 @@ defmodule Overdiscord.Commands.GT6 do
   Cogs.group("gt6")
 
   def get_changelog(version \\ "SNAPSHOT") do
+    version =
+      version
+      |> String.replace(~r/[^SNAPHOTlates0-9.]/, "")
+      |> case do
+        "." <> _ -> "0.0.0"
+        version -> version
+      end
+
     %{body: changelog, headers: headers} =
       HTTPoison.get!(
         "https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/#{version}/gregtech_1.7.10-#{
@@ -21,7 +29,10 @@ defmodule Overdiscord.Commands.GT6 do
       changelog
       |> String.replace("\r", "")
       |> String.split("\n\n\n", trim: true)
-      |> tl()
+      |> case do
+        [] -> []
+        [_ | t] -> t
+      end
       |> Enum.map(fn version_entry ->
         version_entry
         |> String.split("\n[", trum: true)

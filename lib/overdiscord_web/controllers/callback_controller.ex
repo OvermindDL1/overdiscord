@@ -135,6 +135,12 @@ defmodule Overdiscord.Web.CallbackController do
     Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: msg})
   end
 
+  defp send_event(name, msg, simple_msg) do
+    msg = String.trim(msg)
+    simple_msg = String.trim(simple_msg)
+    Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: simple_msg})
+  end
+
   defp send_cmd(name, cmd) do
     Overdiscord.EventPipe.inject({:system, name}, %{irc_cmd: cmd})
   end

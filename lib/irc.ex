@@ -116,15 +116,21 @@ defmodule Overdiscord.IRC.Bridge do
 
   def handle_cast({:send_event, auth, event_data, to}, state) do
     case event_data do
+      %{reply?: true, simple_msg: msg} ->
+        handle_cast({:send_msg, nil, {:simple, msg}, to}, state)
+
+      %{reply?: true, msg: msg} ->
+        handle_cast({:send_msg, nil, msg, to}, state)
+
       %{simple_msg: msg} ->
-        handle_cast({:send_msg, auth.nickname, {:simple, msg}, to}, state)
+        handle_cast({:send_msg, %{nick: auth.nickname, user: ""}, {:simple, msg}, to}, state)
 
       %{msg: msg} ->
-        handle_cast({:send_msg, auth.nickname, msg, to}, state)
+        handle_cast({:send_msg, %{nick: auth.nickname, user: ""}, msg, to}, state)
 
       %{irc_cmd: cmd} ->
         IO.inspect(%{event_data: event_data, auth: auth, to: to}, label: :IRCEventDataCmd)
-        message_extra(:msg, cmd, auth.nickname, "#gt-dev", state)
+        message_extra(:msg, cmd, %{nick: auth.nickname, user: ""}, "#gt-dev", state)
         {:noreply, state}
 
       _ ->
@@ -137,34 +143,66 @@ defmodule Overdiscord.IRC.Bridge do
     handle_cast({:send_msg, nick, msg, "#gt-dev"}, state)
   end
 
-  def handle_cast({:send_msg, nick, msg, chan}, state) do
+  def handle_cast({:send_msg, auth, msg, chan}, state) do
     {is_simple_msg, msg} =
       case msg do
         msg when is_binary(msg) -> {false, msg}
         {:simple, msg} -> {true, msg}
       end
 
-    nick_color = get_name_color(state, nick)
-    db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
-    # |> Enum.flat_map(&split_at_irc_max_length/1)
-    escaped_nick = irc_unping(nick)
+    prefix =
+      case auth do
+        nil ->
+          "> "
 
-    msg
-    |> String.split("\n")
-    |> Enum.each(fn line ->
-      Enum.map(split_at_irc_max_length("#{nick_color}#{escaped_nick}\x0F: #{line}"), fn irc_msg ->
-        # ExIRC.Client.nick(state.client, "#{nick}{Discord}")
-        ExIRC.Client.msg(state.client, :privmsg, chan, irc_msg)
-        # ExIRC.Client.nick(state.client, state.nick)
-        dispatch_msg("@#{nick}: #{line}")
-        Process.sleep(200)
-      end)
-    end)
+        %{nick: nick, user: _user} ->
+          nick_color = get_name_color(state, nick)
 
-    Process.sleep(200)
+          db_user_messaged(state, %{nick: nick, user: nick, host: "#{nick}@Discord"}, msg)
 
-    if not is_simple_msg do
-      message_extra(:send_msg, msg, nick, "#gt-dev", state)
+          # |> Enum.flat_map(&split_at_irc_max_length/1)
+          escaped_nick = irc_unping(nick)
+
+          "#{nick_color}#{escaped_nick}\x0F: "
+      end
+
+    count =
+      msg
+      |> String.split("\n")
+      |> IO.inspect()
+      |> Enum.flat_map(&split_at_irc_max_length(prefix, &1))
+      |> Enum.split(10)
+      |> case do
+        {sending, delayed} ->
+          count =
+            Enum.reduce(sending, 0, fn irc_msg, count ->
+              # ExIRC.Client.nick(state.client, "#{nick}{Discord}")
+              ExIRC.Client.msg(state.client, :privmsg, chan, irc_msg)
+              # ExIRC.Client.nick(state.client, state.nick)
+              dispatch_msg(irc_msg)
+              Process.sleep(count * 10)
+              count + 1
+            end)
+
+          {current, total} =
+            add_delayed_messages(state, chan, delayed, Timex.shift(Timex.now(), minutes: 5))
+
+          if delayed != [] do
+            ExIRC.Client.msg(
+              state.client,
+              :privmsg,
+              chan,
+              "Run `?more` within 5m to get #{current}/#{total} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"
+            )
+          end
+
+          count
+      end
+
+    Process.sleep(count * 10)
+
+    if auth != nil and not is_simple_msg do
+      message_extra(:send_msg, msg, auth, "#gt-dev", state)
     end
 
     {:noreply, state}
@@ -1247,12 +1285,26 @@ defmodule Overdiscord.IRC.Bridge do
   def message_cmd(cmd, args, auth, chan, state) do
     # This is not allocated on every invocation, it is interned
     cache = %{
+      "more" => fn _cmd, _args, _auth, chan, state ->
+        case get_delayed_messages(state, chan) do
+          {[], 0} ->
+            "No delayed messages"
+
+          {msgs, 0} ->
+            msgs
+
+          {msgs, remaining} ->
+            [msgs, "Run `?more` to get #{remaining} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"]
+        end
+      end,
       "changelog" => fn _cmd, args, _auth, chan, state ->
         case args do
           "link" ->
             "https://gregtech.overminddl1.com/com/gregoriust/gregtech/gregtech_1.7.10/changelog.txt"
 
           _ ->
+            IO.inspect(args)
+
             case Overdiscord.Commands.GT6.get_changelog_version(args) do
               {:error, msgs} ->
                 Enum.map(msgs, &send_msg_both(&1, chan, state.client))
@@ -2335,14 +2387,13 @@ defmodule Overdiscord.IRC.Bridge do
           [] ->
             nil
 
-          [_ | _] = msgs when length(msgs) > 4 ->
+          [_ | _] = msgs ->
+            msgs = List.flatten(msgs)
+
             Enum.map(msgs, fn msg ->
               send_msg_both(msg, chan, state.client)
-              Process.sleep(200)
+              Process.sleep(100)
             end)
-
-          [_ | _] = msgs ->
-            Enum.map(msgs, &send_msg_both(&1, chan, state.client))
         end
     end
   rescue
@@ -2576,6 +2627,24 @@ defmodule Overdiscord.IRC.Bridge do
     Regex.scan(~R".{1,419}\S(\s|$)"iu, msg, capture: :first)
   end
 
+  def split_at_irc_max_length(prefix, msg) do
+    msg = prefix <> msg
+
+    Regex.run(~R".{1,419}\S(\s|$)"iu, msg, return: :index, capture: :first)
+    |> case do
+      [{0, len} | _] when len <= :erlang.size(prefix) -> 419
+      [{0, len} | _] -> len
+      _ -> 419
+    end
+    |> case do
+      len ->
+        case String.split_at(msg, len) do
+          {part, ""} -> [part]
+          {part, rest} -> [part | split_at_irc_max_length(prefix, rest)]
+        end
+    end
+  end
+
   def db_put(state = %{db: db}, type, key, value) do
     db_put(db, type, key, value)
     state
@@ -2701,6 +2770,47 @@ defmodule Overdiscord.IRC.Bridge do
   def db_user_messaged(db, auth, _msg) do
     db_timeseries_inc(db, auth.nick)
     db_put(db, :kv, {:lastseen, auth.nick}, NaiveDateTime.utc_now())
+  end
+
+  def add_delayed_messages(state, chan, msgs, expires_at)
+
+  def add_delayed_messages(state, chan, msg, expires_at) when is_binary(msg) do
+    add_delayed_messages(state, chan, [msg], expires_at)
+  end
+
+  def add_delayed_messages(state, chan, msgs, %DateTime{} = expires_at)
+      when is_list(msgs) and is_binary(chan) do
+    old_msgs =
+      (db_get(state, :kv, {:delayed_messages, chan}) || [])
+      |> prune_delayed_messages()
+
+    msgs =
+      msgs
+      |> Enum.with_index()
+      |> Enum.map(&{Timex.shift(expires_at, microseconds: elem(&1, 1)), elem(&1, 0)})
+
+    new_msgs = Enum.sort(old_msgs ++ msgs, &(Timex.compare(&1, &2) > 0))
+    IO.inspect(new_msgs, label: DelayedMessages)
+    db_put(state, :kv, {:delayed_messages, chan}, new_msgs)
+    {length(msgs), length(new_msgs)}
+  end
+
+  defp prune_delayed_messages(msgs, now \\ Timex.now()) do
+    Enum.filter(msgs, &(Timex.compare(elem(&1, 0), now) > 0))
+  end
+
+  defp get_delayed_messages(state, chan, count \\ 10, now \\ Timex.now()) do
+    (db_get(state, :kv, {:delayed_messages, chan}) || [])
+    |> prune_delayed_messages(now)
+    |> Enum.split(count)
+    |> case do
+      {[], []} ->
+        {[], 0}
+
+      {return, rest} ->
+        db_put(state, :kv, {:delayed_messages, chan}, rest)
+        {Enum.map(return, &elem(&1, 1)), length(rest)}
+    end
   end
 
   def new_lua_state() do
@@ -2850,6 +2960,10 @@ defmodule Overdiscord.IRC.Bridge do
         false
       )
 
+  defp get_name_color(_state, "") do
+    ""
+  end
+
   defp get_name_color(state, name) do
     case db_get(state, :kv, {:name_formatting, name}) do
       nil -> "\x02"
@@ -2974,6 +3088,7 @@ defmodule Overdiscord.IRC.Bridge do
 
   def irc_unping(<<c::utf8>>), do: <<c::utf8, 204, 178>>
   def irc_unping(<<c::utf8, rest::binary>>), do: <<c::utf8, 226, 128, 139, rest::binary>>
+  def irc_unping(""), do: ""
 
   defp dispatch_msg(msg) do
     Overdiscord.Web.GregchatCommander.append_msg(msg)

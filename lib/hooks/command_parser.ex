@@ -20,8 +20,20 @@ defmodule Overdiscord.Hooks.CommandParser do
             "Shows all commands or if a command path is passed in then shows the help for that command"
         }
       },
-      "g" => Commands.GameResource.parser_def()
+      "g" => Commands.GameResource.parser_def(),
+      "gt6" => Commands.GT6.parser_def()
     }
+  end
+
+  def log(msg, type \\ :warn)
+
+  def log(msg, type) when is_binary(msg) do
+    Logger.log(type, msg)
+    msg
+  end
+
+  def log(msg, type) do
+    log(inspect(msg), type)
   end
 
   @doc ~S"""
@@ -95,6 +107,9 @@ defmodule Overdiscord.Hooks.CommandParser do
 
               string when is_binary(string) ->
                 Overdiscord.EventPipe.inject(auth, %{msg: string, reply?: true})
+
+              map when is_map(map) ->
+                Overdiscord.EventPipe.inject(auth, map)
             end
         end
     end
@@ -106,6 +121,7 @@ defmodule Overdiscord.Hooks.CommandParser do
 
   def unhandled_callback(%{cmds: cmds, parser: %{callback: cb}}, :invalid_callback) do
     "@OvermindDL1 Command `#{inspect(cmds)}` has an invalid callback of: `#{inspect(cb)}`"
+    |> log(:error)
   end
 
   def unhandled_callback(
@@ -117,9 +133,11 @@ defmodule Overdiscord.Hooks.CommandParser do
          end) do
       {nil, _cb} ->
         "@OvermindDL1 Parsed Commands `#{inspect(all_cmds)}` don't actually exist in parser!"
+        |> log(:error)
 
       {_parser, cb} ->
         "@OvermindDL1 Command `#{inspect(all_cmds)}` has base invalid callback of: `#{inspect(cb)}`"
+        |> log(:error)
     end
   end
 
@@ -247,7 +265,7 @@ defmodule Overdiscord.Hooks.CommandParser do
     if :erlang.function_exported(module, fun, 1 + length(extra_args)) do
       mfa
     else
-      Logger.warn(
+      Logger.error(
         "Callback `#{module}.#{fun}/#{1 + length(extra_args)}` does not exist, extra args: #{
           inspect(extra_args)
         }"
