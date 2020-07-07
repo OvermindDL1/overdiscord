@@ -130,18 +130,18 @@ defmodule Overdiscord.Web.CallbackController do
     # :simple_msg
   end
 
-  defp send_event(name, msg) do
+  def send_event(name, msg) do
     msg = String.trim(msg)
     Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: msg})
   end
 
-  defp send_event(name, msg, simple_msg) do
+  def send_event(name, msg, simple_msg) do
     msg = String.trim(msg)
     simple_msg = String.trim(simple_msg)
     Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: simple_msg})
   end
 
-  defp send_cmd(name, cmd) do
+  def send_irc_cmd(name, cmd) do
     Overdiscord.EventPipe.inject({:system, name}, %{irc_cmd: cmd})
   end
 
@@ -312,8 +312,12 @@ defmodule Overdiscord.Web.CallbackController do
                 "New Release #{build_version}:  https://gregtech.overminddl1.com/downloads/gregtech_1.7.10/index.html#Downloads"
               )
 
-              send_cmd(title, "?screenshot")
-              send_cmd(title, "?changelog ##{build_version}")
+              send_event(title, "?gt6 screenshot")
+              send_event(title, "?gt6 changelog ##{build_version}")
+
+              # send_irc_cmd(title, "?screenshot")
+              # send_irc_cmd(title, "?changelog ##{build_version}")
+
               :undefined
 
             "SNAPSHOT" ->
@@ -339,7 +343,7 @@ defmodule Overdiscord.Web.CallbackController do
               }"
 
             "SCREENSHOT" ->
-              send_cmd(title, "?screenshot")
+              send_irc_cmd(title, "?screenshot")
               :undefined
 
             _ ->

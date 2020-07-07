@@ -1294,7 +1294,10 @@ defmodule Overdiscord.IRC.Bridge do
             msgs
 
           {msgs, remaining} ->
-            [msgs, "Run `?more` to get #{remaining} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"]
+            [
+              msgs,
+              "Run `?more` to get #{remaining} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"
+            ]
         end
       end,
       "changelog" => fn _cmd, args, _auth, chan, state ->
@@ -2790,7 +2793,7 @@ defmodule Overdiscord.IRC.Bridge do
       |> Enum.map(&{Timex.shift(expires_at, microseconds: elem(&1, 1)), elem(&1, 0)})
 
     new_msgs = Enum.sort(old_msgs ++ msgs, &(Timex.compare(&1, &2) > 0))
-    IO.inspect(new_msgs, label: DelayedMessages)
+    # IO.inspect(new_msgs, label: DelayedMessages)
     db_put(state, :kv, {:delayed_messages, chan}, new_msgs)
     {length(msgs), length(new_msgs)}
   end
