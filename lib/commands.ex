@@ -124,10 +124,14 @@ defmodule Overdiscord.Commands do
                                          size: size,
                                          url: url,
                                          proxy_url: _proxy_url
-                                       } = _attachment ->
+                                       } = attachment ->
             size = Sizeable.filesize(size, spacer: "")
             IO.inspect({filename, size, url}, label: "Sending attachment")
-            Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
+            # Overdiscord.IRC.Bridge.send_msg(username, "#{filename} #{size}: #{url}")
+            Overdiscord.EventPipe.inject(msg, %{
+              simple_msg: "#{filename}, #{size}: #{url}",
+              file: attachment
+            })
           end)
       end
     end

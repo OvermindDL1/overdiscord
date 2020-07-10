@@ -38,9 +38,9 @@ defmodule Overdiscord.IRC.Bridge do
   def send_msg("", _), do: nil
   def send_msg(_, ""), do: nil
 
-  def send_msg(nick, msg) do
-    # IO.inspect({"Casting", nick, msg})
-    :gen_server.cast(:irc_bridge, {:send_msg, nick, msg})
+  def send_msg(auth, msg) do
+    # IO.inspect({"Casting", auth, msg})
+    :gen_server.cast(:irc_bridge, {:send_msg, auth, msg})
   end
 
   def on_presence_update(nick, game) do
@@ -139,8 +139,8 @@ defmodule Overdiscord.IRC.Bridge do
     end
   end
 
-  def handle_cast({:send_msg, nick, msg}, state) do
-    handle_cast({:send_msg, nick, msg, "#gt-dev"}, state)
+  def handle_cast({:send_msg, auth, msg}, state) do
+    handle_cast({:send_msg, auth, msg, "#gt-dev"}, state)
   end
 
   def handle_cast({:send_msg, auth, msg, chan}, state) do
