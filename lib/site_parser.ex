@@ -134,19 +134,12 @@ defmodule Overdiscord.SiteParser do
 
               case get_general(doc, opts) do
                 result when is_binary(result) ->
-                  case String.trim(
-                         to_string(
-                           Meeseeks.text(
-                             Meeseeks.one(doc, css(".unsubscribe-confirmation-message"))
-                           )
-                         )
-                       ) do
+                  case Meeseeks.attr(Meeseeks.one(doc, css("link[itemprop=name]")), "content") do
                     "" ->
                       result
 
-                    "Unsubscribe from " <> rest ->
-                      channel_name = String.trim_trailing(rest, "?")
-                      "#{channel_name}: #{result}"
+                    author_name ->
+                      "#{author_name}: #{result}"
                   end
 
                 otherwise ->
