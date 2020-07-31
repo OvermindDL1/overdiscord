@@ -1144,15 +1144,17 @@ defmodule Overdiscord.IRC.Bridge do
         ~R/@?\bqwertygiy\b|@?\bqwerty\b|@?\bqwertys\b|@?\bqwertz\b|@?\bqwertzs\b/i,
         "<@80832726017511424>"
       )
-      |> String.replace(~R/@?\bSuperCoder79\b|\bsc79\b/i, "<@222338097604460545>")
-      |> String.replace(~R/@?\bandyafw\b|\bandy\b|\banna\b/i, "<@179586256752214016>")
-      |> String.replace(~R/@?\bcrazyj1984\b|\bcrazyj\b/i, "<@225742972145238018>")
+      |> String.replace(~R/@?\bSuperCoder79\b|@?\bsc79\b/i, "<@222338097604460545>")
+      |> String.replace(~R/@?\bandyafw\b|@?\bandy\b|@?\banna\b/i, "<@179586256752214016>")
+      |> String.replace(~R/@?\bcrazyj1984\b|@?\bcrazyj\b/i, "<@225742972145238018>")
       |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
       |> String.replace(~R/@?\bnetmc\b/i, "<@185586090416013312>")
       |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
       |> String.replace(~R/@?\bdbp\b|@?\bdpb\b/i, "<@138742528051642369>")
       |> String.replace(~R/@?\baxlegear\b/i, "<@226165192814362634>")
       |> String.replace(~R/@?\bbart\b/i, "<@258399730302844928>")
+      |> String.replace(~R/@?\byuesha\b/i, "<@712305158352273418>")
+      |> String.replace(~R/@?\boverminddl1\b|@?\bovermind\b/i, "<@240159434859479041>")
       |> to_string()
 
     msg =
