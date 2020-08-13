@@ -80,7 +80,7 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
   end
 
   def handle_cmd_changelog(%{args: args} = _arg) do
-    version = List.first(args) || "SNAPSHOT"
+    version = List.first(args) || "#SNAPSHOT"
     IO.inspect(version)
 
     case Overdiscord.Commands.GT6.get_changelog_version(version) do

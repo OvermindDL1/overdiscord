@@ -1,6 +1,8 @@
 defmodule Overdiscord.IRC.Bridge do
   # TODO:  `?update` Download Link, Screenshot, Changelog order all at once
 
+  @large_msg_lines 10
+
   require Logger
 
   defmodule State do
@@ -166,44 +168,90 @@ defmodule Overdiscord.IRC.Bridge do
           "#{nick_color}#{escaped_nick}\x0F: "
       end
 
-    count =
-      msg
-      |> String.split("\n")
-      |> IO.inspect()
-      |> Enum.flat_map(&split_at_irc_max_length(prefix, &1))
-      |> Enum.split(10)
-      |> case do
-        {sending, delayed} ->
-          count =
-            Enum.reduce(sending, 0, fn irc_msg, count ->
-              # ExIRC.Client.nick(state.client, "#{nick}{Discord}")
-              ExIRC.Client.msg(state.client, :privmsg, chan, irc_msg)
-              # ExIRC.Client.nick(state.client, state.nick)
-              dispatch_msg(irc_msg)
-              Process.sleep(count * 10)
-              count + 1
-            end)
+    msg
+    |> String.split("\n")
+    |> IO.inspect()
+    |> Enum.flat_map(&split_at_irc_max_length(prefix, &1))
+    # |> Enum.split(10)
+    |> case do
+      [] ->
+        0
 
-          {current, total} =
-            add_delayed_messages(state, chan, delayed, Timex.shift(Timex.now(), minutes: 5))
+      [line] ->
+        ExIRC.Client.msg(state.client, :privmsg, chan, line)
+        dispatch_msg(line)
 
-          if delayed != [] do
+        if auth != nil and not is_simple_msg do
+          message_extra(:send_msg, line, auth, chan, state)
+        end
+
+      [_ | _] = lines ->
+        spawn(fn ->
+          if length(lines) > @large_msg_lines do
+            db_put(state, :set_add, {:big_msgs, chan}, self())
+
             ExIRC.Client.msg(
               state.client,
-              :privmsg,
+              :notice,
               chan,
-              "Run `?more` within 5m to get #{current}/#{total} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"
+              "Big message received, printing slowly for esper lag prevention:"
             )
           end
 
-          count
-      end
+          Enum.reduce(lines, 1, fn line, acc ->
+            ExIRC.Client.msg(state.client, :privmsg, chan, line)
+            dispatch_msg(line)
 
-    Process.sleep(count * 10)
+            if auth != nil and not is_simple_msg do
+              message_extra(:send_msg, line, auth, chan, state)
+            end
 
-    if auth != nil and not is_simple_msg do
-      message_extra(:send_msg, msg, auth, "#gt-dev", state)
+            receive do
+              :kill -> Process.exit(self(), :normal)
+            after
+              acc * 110 -> nil
+            end
+
+            (acc > 10 && 10) || acc + 1
+          end)
+
+          if length(lines) > @large_msg_lines do
+            ExIRC.Client.msg(state.client, :notice, chan, "Big message complete")
+            db_put(state, :set_remove, {:big_msgs, chan}, self())
+          end
+        end)
+
+        # {sending, delayed} ->
+        # count =
+        #  Enum.reduce(sending, 0, fn irc_msg, count ->
+        #    # ExIRC.Client.nick(state.client, "#{nick}{Discord}")
+        #    ExIRC.Client.msg(state.client, :privmsg, chan, irc_msg)
+        #    # ExIRC.Client.nick(state.client, state.nick)
+        #    dispatch_msg(irc_msg)
+        #    Process.sleep(count * 10)
+        #    count + 1
+        #  end)
+
+        # {current, total} =
+        #  add_delayed_messages(state, chan, delayed, Timex.shift(Timex.now(), minutes: 5))
+
+        # if delayed != [] do
+        #  ExIRC.Client.msg(
+        #    state.client,
+        #    :privmsg,
+        #    chan,
+        #    "Run `?more` within 5m to get #{current}/#{total} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"
+        #  )
+        # end
+
+        # count
     end
+
+    # Process.sleep(count * 10)
+
+    # if auth != nil and not is_simple_msg do
+    #  message_extra(:send_msg, msg, auth, "#gt-dev", state)
+    # end
 
     {:noreply, state}
   end
@@ -666,6 +714,7 @@ defmodule Overdiscord.IRC.Bridge do
         :ok
 
       msg ->
+        IO.inspect("BLAH!")
         spawn(fn -> Overdiscord.EventPipe.inject({nick, auth, state}, %{msg: msg}) end)
         message_extra(:msg, msg, auth, nick, state)
     end
@@ -1300,6 +1349,25 @@ defmodule Overdiscord.IRC.Bridge do
               msgs,
               "Run `?more` to get #{remaining} more messages (anti-flood protection, don't run this too rapidly or esper will eat messages)"
             ]
+        end
+      end,
+      "stop" => fn _cmd, _args, auth, _chan, state ->
+        if not is_admin(auth) do
+          "You do not have access to the `stop` command"
+        else
+          case db_get(state, :set, {:big_msgs, chan}) do
+            [] ->
+              "No message streams to stop"
+
+            streams when is_list(streams) ->
+              Enum.each(streams, fn stream ->
+                send(stream, :kill)
+                Process.exit(stream, :kill)
+                db_put(state, :set_remove, {:big_msgs, chan}, stream)
+              end)
+
+              "Stopped #{length(streams)} stream(s)"
+          end
         end
       end,
       "changelog" => fn _cmd, args, _auth, chan, state ->
