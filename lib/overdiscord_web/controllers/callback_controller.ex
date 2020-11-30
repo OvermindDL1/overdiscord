@@ -18,7 +18,7 @@ defmodule Overdiscord.Web.CallbackController do
         }
       }) do
     # url =
-    #  "https://forum.gregtech.overminddl1.com/t/#{topic_slug}/#{topic_id}/#{topic_posts_count}"
+    #  "https://forum.gregtech.mechaenetia.com/t/#{topic_slug}/#{topic_id}/#{topic_posts_count}"
 
     # doc = Meeseeks.parse(cooked |> IO.inspect())
 
@@ -74,7 +74,7 @@ defmodule Overdiscord.Web.CallbackController do
         }
       }) do
     url =
-      "https://forum.gregtech.overminddl1.com/t/#{topic_slug}/#{topic_id}/#{topic_posts_count}"
+      "https://forum.gregtech.mechaenetia.com/t/#{topic_slug}/#{topic_id}/#{topic_posts_count}"
 
     body =
       cooked
@@ -279,6 +279,40 @@ defmodule Overdiscord.Web.CallbackController do
     |> text("unhandled")
   end
 
+  def ci(
+        conn,
+        %{
+          "commit" => commit,
+          "data" => %{"version" => version},
+          "event" => event,
+          "head" => head,
+          "ref" => ref,
+          "repository" => repository,
+          "workflow" => workflow
+        } = params
+      ) do
+    title = "CI/#{repository}/#{ref}/#{commit}"
+
+    case version do
+      "SNAPSHOT" ->
+        "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989"
+
+      version ->
+        params
+    end
+    |> case do
+      msg when is_binary(msg) ->
+        send_event(title, msg)
+        text(conn, "ok")
+
+      nil ->
+        text(conn, "ok")
+
+      unknown ->
+        throw({:UNKNOWN, unknown})
+    end
+  end
+
   def concourse(
         conn,
         %{
@@ -309,7 +343,7 @@ defmodule Overdiscord.Web.CallbackController do
             "RELEASE" ->
               send_event(
                 title,
-                "New Release #{build_version}:  https://gregtech.overminddl1.com/downloads/gregtech_1.7.10/index.html#Downloads"
+                "New Release #{build_version}:  https://gregtech.mechaenetia.com/downloads/gregtech_1.7.10/index.html#Downloads"
               )
 
               send_event(title, "?gt6 screenshot")
@@ -338,7 +372,7 @@ defmodule Overdiscord.Web.CallbackController do
 
               Storage.delete(@db, :kv, "GregTech-6/GT6")
 
-              "New SNAPSHOT #{build_version}: https://gregtech.overminddl1.com/secretdownloads/ @Bear989\n#{
+              "New SNAPSHOT #{build_version}: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989\n#{
                 msgs
               }"
 
@@ -347,7 +381,7 @@ defmodule Overdiscord.Web.CallbackController do
               :undefined
 
             _ ->
-              "Build #{build_name} of #{build_type} succeeded: https://gregtech.overminddl1.com/secretdownloads/"
+              "Build #{build_name} of #{build_type} succeeded: https://gregtech.mechaenetia.com/secretdownloads/"
           end
           |> case do
             msg when is_binary(msg) -> send_event(title, msg)

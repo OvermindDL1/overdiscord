@@ -421,11 +421,18 @@ defmodule Overdiscord.IRC.Bridge do
                     title when title != nil <- Meeseeks.one(entry, css("title")),
                     nil <- Meeseeks.text(Meeseeks.one(title, css("[type=\"text\"]"))),
                     nil <-
-                      Meeseeks.one(title, css("[type=\"html\"]"))
-                      |> Meeseeks.text()
-                      |> Meeseeks.parse()
-                      |> Meeseeks.one(css("*"))
-                      |> Meeseeks.text(),
+                      case Meeseeks.one(title, css("[type=\"html\"]")) do
+                        nil ->
+                          nil
+
+                        title ->
+                          title
+                          |> Meeseeks.text()
+                          |> Meeseeks.parse()
+                          |> Meeseeks.one(css("*"))
+                          |> Meeseeks.text()
+                      end,
+                    nil <- Meeseeks.text(title),
                     do: nil
                   )
                 rescue
