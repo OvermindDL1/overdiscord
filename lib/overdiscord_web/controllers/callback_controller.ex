@@ -303,6 +303,7 @@ defmodule Overdiscord.Web.CallbackController do
       title = "#{repository}/#{ref}/#{commit} "
 
       case ref do
+        # Snapshot
         "refs/heads/master" ->
           send_event(
             name,
@@ -313,24 +314,17 @@ defmodule Overdiscord.Web.CallbackController do
           case Storage.get(@db, :kv, {:last_commit_seen, repository}, nil) do
             nil ->
               url = "https://github.com/#{repository}/commit/#{commit}"
+              send_event(name, title <> "See commit at: #{url}")
+              send_irc_cmd(name, url)
 
-              send_event(
-                name,
-                title <>
-                  "See commit at: #{url}"
-              )
-
+            %{last_commit: ^commit} ->
+              url = "https://github.com/#{repository}/commit/#{commit}"
+              send_event(name, title <> "See commit at: #{url}")
               send_irc_cmd(name, url)
 
             %{last_commit: last_commit} ->
               url = "https://github.com/#{repository}/compare/#{last_commit}..#{commit}"
-
-              send_event(
-                name,
-                title <>
-                  "See diff at: #{url}"
-              )
-
+              send_event(name, title <> "See diff at: #{url}")
               send_irc_cmd(title, url)
           end
 
@@ -338,6 +332,7 @@ defmodule Overdiscord.Web.CallbackController do
 
           text(conn, "ok")
 
+        # Release
         "refs/tags/v" <> version ->
           send_event(
             name,
@@ -350,7 +345,9 @@ defmodule Overdiscord.Web.CallbackController do
 
           text(conn, "ok")
 
+        # Unknown
         unknown_ref ->
+          send_event(name, "Unknown ref type: #{inspect(ref)}")
           throw({:CI_UNKNOWN_REF, params, unknown_ref})
       end
     else
