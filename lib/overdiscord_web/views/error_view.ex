@@ -5,7 +5,8 @@ defmodule Overdiscord.Web.ErrorView do
 
   # If you want to customize a particular status code
   # for a certain format, you may uncomment below.
-  def render("500.html", _assigns) do
+  def render("500.html", assigns) do
+    Logger.error("500 Error assigns: #{inspect(assigns)}")
     code = abs(:erlang.monotonic_time())
     Logger.error("Error code:  #{code}")
     "Unknown error, report this to OvermindDL1 with the code of #{code}"

@@ -1528,7 +1528,7 @@ defmodule Overdiscord.IRC.Bridge do
             [
               "?feeds -> Shows this help screen",
               "?feeds list -> Lists Feed URLs",
-              is_admin && "?feeds add <url> -> Adds a new Feed url to track",
+              is_admin && "?feeds add [type] <url> -> Adds a new Feed url to track",
               is_admin && "?feeds remove <url> -> Removes a Feed url from tracking",
               "?feeds ping <subcmd> -> Manages pings for feed subscription auto-popups, run just `?feeds ping` for help",
               "?feeds <urlpart> -> Searches for the first URL that matches the selection and shows it"
@@ -1547,6 +1547,15 @@ defmodule Overdiscord.IRC.Bridge do
 
           "add " <> url ->
             url = String.trim(url)
+
+            {type, url} =
+              case String.split(parts: 2, trim: true) do
+                [url] -> {:rss_atom, url}
+                ["rss", url] -> {:rss_atom, url}
+                ["atom", url] -> {:rss_atom, url}
+                [type, url] -> {type, url}
+              end
+
             uri = URI.parse(url)
             url = URI.to_string(uri)
             urls = List.wrap(db_get(state, :kv, :feed_links))
@@ -1554,6 +1563,9 @@ defmodule Overdiscord.IRC.Bridge do
             cond do
               not is_admin(auth) ->
                 "Missing required access permissions"
+
+              type not in [:rss_atom] ->
+                "Invalid type: `#{type}`"
 
               not is_binary(uri.host) and is_binary(uri.path) and uri.scheme in ["http", "https"] ->
                 "Not a valid URL for tracking"

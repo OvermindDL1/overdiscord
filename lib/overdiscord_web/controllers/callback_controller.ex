@@ -283,33 +283,80 @@ defmodule Overdiscord.Web.CallbackController do
         conn,
         %{
           "commit" => commit,
-          "data" => %{"version" => version},
-          "event" => event,
-          "head" => head,
+          # "data" => %{"version" => version},
+          "event" => _event,
+          "head" => _head,
           "ref" => ref,
-          "repository" => repository,
-          "workflow" => workflow
+          "repository" => repository = "GregTech6/gregtech6",
+          "workflow" => _workflow
         } = params
       ) do
-    title = "CI/#{repository}/#{ref}/#{commit}"
+    run_number =
+      :proplists.get_value("x-github-delivery", conn.req_headers) |> String.to_integer()
 
-    case version do
-      "SNAPSHOT" ->
-        "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989"
+    event_name = :proplists.get_value("x-github-event", conn.req_headers)
 
-      version ->
-        params
-    end
-    |> case do
-      msg when is_binary(msg) ->
-        send_event(title, msg)
-        text(conn, "ok")
+    IO.inspect({params, run_number, event_name}, label: :CI_PARAMS)
 
-      nil ->
-        text(conn, "ok")
+    if conn.private.verified_signature do
+      name = "CI"
+      title = "#{repository}/#{ref}/#{commit} "
 
-      unknown ->
-        throw({:UNKNOWN, unknown})
+      case ref do
+        "refs/heads/master" ->
+          send_event(
+            name,
+            title <>
+              "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989"
+          )
+
+          case Storage.get(@db, :kv, {:last_commit_seen, repository}, nil) do
+            nil ->
+              url = "https://github.com/#{repository}/commit/#{commit}"
+
+              send_event(
+                name,
+                title <>
+                  "See commit at: #{url}"
+              )
+
+              send_irc_cmd(name, url)
+
+            %{last_commit: last_commit} ->
+              url = "https://github.com/#{repository}/compare/#{last_commit}..#{commit}"
+
+              send_event(
+                name,
+                title <>
+                  "See diff at: #{url}"
+              )
+
+              send_irc_cmd(title, url)
+          end
+
+          Storage.put(@db, :kv, {:last_commit_seen, repository}, %{last_commit: commit})
+
+          text(conn, "ok")
+
+        "refs/tags/v" <> version ->
+          send_event(
+            name,
+            title <>
+              "New Release #{version}: https://gregtech.mechaenetia.com/downloads/gregtech_1.7.10/index.html#Downloads"
+          )
+
+          send_event(name, title <> "?gt6 screenshot")
+          send_event(name, title <> "?gt6 changelog ##{version}")
+
+          text(conn, "ok")
+
+        unknown_ref ->
+          throw({:CI_UNKNOWN_REF, params, unknown_ref})
+      end
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> text("unauthenticated token")
     end
   end
 

@@ -39,6 +39,11 @@ config :overdiscord, Overdiscord.Cron,
     {"*/15 * * * *", {Overdiscord.Commands, :check_dead, []}}
   ]
 
+# Configure the CI webhook key
+config :overdiscord,
+       :ci_token_key,
+       System.get_env("OVERDISCORD_CI_TOKEN_KEY") || throw("Set `OVERDISCORD_CI_TOKEN_KEY`")
+
 # Configures the endpoint
 config :overdiscord, Overdiscord.Web.Endpoint,
   server: true,

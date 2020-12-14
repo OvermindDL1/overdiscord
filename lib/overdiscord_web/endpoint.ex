@@ -1,6 +1,8 @@
 defmodule Overdiscord.Web.Endpoint do
   use Phoenix.Endpoint, otp_app: :overdiscord
 
+  require Logger
+
   plug(
     Plug.Static,
     at: "/",
@@ -30,7 +32,19 @@ defmodule Overdiscord.Web.Endpoint do
     Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    body_reader: {__MODULE__, :read_body, []},
     json_decoder: Phoenix.json_library()
+  )
+
+  plug(:verify_signature,
+    matchers: [
+      %{
+        path: "/api/webhook/ci",
+        header: "x-hub-signature",
+        hmac: :sha,
+        key: Application.get_env(:overdiscord, :ci_token_key, nil) || throw(:missing_ci_token_key)
+      }
+    ]
   )
 
   plug(Plug.MethodOverride)
@@ -45,4 +59,54 @@ defmodule Overdiscord.Web.Endpoint do
   )
 
   plug(Overdiscord.Web.Router)
+
+  def read_body(conn, opts) do
+    {:ok, body, conn} = Plug.Conn.read_body(conn, opts)
+    conn = update_in(conn.assigns[:raw_body], &[body | &1 || []])
+    {:ok, body, conn}
+  end
+
+  def verify_signature(conn, opts) do
+    verify_signature(conn, opts, Keyword.get(opts, :matchers))
+  end
+
+  def verify_signature(conn, _opts, []) do
+    conn
+  end
+
+  def verify_signature(conn, opts, [matcher | matchers]) do
+    if matcher.path == conn.request_path do
+      case matcher do
+        %{header: header, hmac: :sha = hmac, key: key} ->
+          token =
+            case Plug.Conn.get_req_header(conn, header)
+                 |> IO.inspect(label: :token)
+                 |> List.first() do
+              "sha=" <> token -> token
+              "sha1=" <> token -> token
+              token -> token
+            end
+            |> String.downcase()
+            |> IO.inspect(label: :token_processed)
+
+          # {:ok, body, conn} = Plug.Conn.read_body(conn) |> IO.inspect(label: :body)
+          body = conn.assigns[:raw_body] || ""
+
+          verify_token =
+            :crypto.hmac(hmac, key, body)
+            |> Base.encode16()
+            |> String.downcase()
+            |> IO.inspect(label: :verify_token)
+
+          if token == verify_token do
+            conn |> Plug.Conn.put_private(:verified_signature, true)
+          else
+            Logger.info("Invalid signature on request")
+            conn |> Plug.Conn.send_resp(401, "invalid signature") |> Plug.Conn.halt()
+          end
+      end
+    else
+      verify_signature(conn, opts, matchers)
+    end
+  end
 end
