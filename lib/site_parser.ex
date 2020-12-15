@@ -71,7 +71,8 @@ defmodule Overdiscord.SiteParser do
           {false, others}
       end
 
-    opts = [uri: uri] ++ opts
+    # opts = [uri: uri] ++ opts
+    opts = Map.put(opts, :uri, uri)
     url = URI.to_string(uri)
 
     IO.inspect(opts, label: :SiteParser_FullOpts)
@@ -155,7 +156,13 @@ defmodule Overdiscord.SiteParser do
                   get_git(Meeseeks.parse(body), url, ".L", opts)
 
                 "github.com/" <> _ ->
-                  get_git(Meeseeks.parse(body), url, "#LC", opts)
+                  case Path.split(uri.path) do
+                    ["/", _owner, _repository, "compare", _range] ->
+                      get_github_compare(Meeseeks.parse(body), url, opts)
+
+                    _ ->
+                      get_git(Meeseeks.parse(body), url, "#LC", opts)
+                  end
 
                 _unknown ->
                   case :proplists.get_value("Content-Type", headers) do
@@ -265,8 +272,8 @@ defmodule Overdiscord.SiteParser do
     end
   end
 
-  defp get_git(doc, url, l, opts) do
-    uri = URI.parse(url)
+  defp get_git(doc, url, l, %{uri: uri} = opts) do
+    # uri = URI.parse(url)
     title = get_general(doc, opts)
 
     lines =
@@ -299,6 +306,53 @@ defmodule Overdiscord.SiteParser do
               |> Enum.join("\n")
           end
       end
+
+    "#{title}\n#{lines}"
+  end
+
+  defp get_github_compare(doc, url, %{uri: uri} = opts) do
+    title = get_general(doc, opts)
+
+    lines =
+      doc
+      |> Meeseeks.all(css(".TimelineItem-body"))
+      |> Enum.flat_map(fn item ->
+        with(
+          name when is_binary(name) and bit_size(name) > 0 <-
+            item
+            |> Meeseeks.one(css("img.avatar-user"))
+            |> Meeseeks.attr("alt")
+            |> to_string()
+            |> String.trim()
+            |> String.split("\n", parts: 2)
+            |> List.first()
+            |> to_string()
+            |> String.trim(),
+          line when is_binary(line) and bit_size(line) > 0 <-
+            item
+            |> Meeseeks.one(css(".pr-1 code a"))
+            |> Meeseeks.text()
+            |> to_string()
+            |> String.trim()
+            |> String.split("\n", parts: 2)
+            |> List.first()
+            |> to_string()
+            |> String.trim(),
+          commit when is_binary(commit) and bit_size(commit) > 0 <-
+            item
+            |> Meeseeks.one(css(".ml-1 code a"))
+            |> Meeseeks.text()
+            |> to_string()
+            |> String.trim()
+            |> String.split("\n", parts: 2)
+            |> List.first()
+            |> to_string()
+            |> String.trim(),
+          do: ["#{line} · #{name} · #{commit}"],
+          else: (_ -> [])
+        )
+      end)
+      |> Enum.join("\n")
 
     "#{title}\n#{lines}"
   end

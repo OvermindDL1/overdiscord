@@ -315,17 +315,20 @@ defmodule Overdiscord.Web.CallbackController do
             nil ->
               url = "https://github.com/#{repository}/commit/#{commit}"
               send_event(name, title <> "See commit at: #{url}")
-              send_irc_cmd(name, url)
+              send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
+              #send_irc_cmd(name, url)
 
             %{last_commit: ^commit} ->
               url = "https://github.com/#{repository}/commit/#{commit}"
               send_event(name, title <> "See commit at: #{url}")
-              send_irc_cmd(name, url)
+              send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
+              #send_irc_cmd(name, url)
 
             %{last_commit: last_commit} ->
               url = "https://github.com/#{repository}/compare/#{last_commit}...#{commit}"
               send_event(name, title <> "See diff at: #{url}")
-              send_irc_cmd(title, url)
+              send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
+              #send_irc_cmd(title, url)
           end
 
           Storage.put(@db, :kv, {:last_commit_seen, repository}, %{last_commit: commit})
