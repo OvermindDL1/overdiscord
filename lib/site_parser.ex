@@ -311,7 +311,7 @@ defmodule Overdiscord.SiteParser do
   end
 
   defp get_github_compare(doc, url, %{uri: uri} = opts) do
-    title = get_general(doc, opts)
+    # title = get_general(doc, opts)
 
     lines =
       doc
@@ -354,7 +354,8 @@ defmodule Overdiscord.SiteParser do
       end)
       |> Enum.join("\n")
 
-    "#{title}\n#{lines}"
+    # "#{title}\n#{lines}"
+    lines
   end
 
   defp get_summary_opengraph(doc, _opts) do

@@ -299,8 +299,9 @@ defmodule Overdiscord.Web.CallbackController do
     IO.inspect({params, run_number, event_name}, label: :CI_PARAMS)
 
     if conn.private.verified_signature do
+      {short_commit, _} = String.split_at(commit, 8)
       name = "CI"
-      title = "#{repository}/#{ref}/#{commit} "
+      title = "#{repository}/#{ref}/#{short_commit} "
 
       case ref do
         # Snapshot
@@ -314,21 +315,23 @@ defmodule Overdiscord.Web.CallbackController do
           case Storage.get(@db, :kv, {:last_commit_seen, repository}, nil) do
             nil ->
               url = "https://github.com/#{repository}/commit/#{commit}"
-              send_event(name, title <> "See commit at: #{url}")
+              send_event(name, "See commit at: #{url}")
               send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
-              #send_irc_cmd(name, url)
+
+            # send_irc_cmd(name, url)
 
             %{last_commit: ^commit} ->
               url = "https://github.com/#{repository}/commit/#{commit}"
-              send_event(name, title <> "See commit at: #{url}")
+              send_event(name, "See commit at: #{url}")
               send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
-              #send_irc_cmd(name, url)
+
+            # send_irc_cmd(name, url)
 
             %{last_commit: last_commit} ->
               url = "https://github.com/#{repository}/compare/#{last_commit}...#{commit}"
-              send_event(name, title <> "See diff at: #{url}")
+              send_event(name, "See diff at: #{url}")
               send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
-              #send_irc_cmd(title, url)
+              # send_irc_cmd(title, url)
           end
 
           Storage.put(@db, :kv, {:last_commit_seen, repository}, %{last_commit: commit})
