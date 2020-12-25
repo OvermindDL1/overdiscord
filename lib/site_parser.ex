@@ -184,6 +184,32 @@ defmodule Overdiscord.SiteParser do
       end
     end
   rescue
+    err in HTTPoison.Error ->
+      case err do
+        # Broke HTTPoison... issue #171 still not resolved almost 4 years later...
+        %{reason: {:invalid_redirection, {:ok, 303, headers, _client}}} ->
+          # TODO:  Check each value case insensitive, but this works for youtu.be for now...
+          case :proplists.get_all_values("Location", headers) do
+            [new_url] when new_url != url ->
+              get_summary(new_url, opts)
+
+            _ ->
+              IO.puts(
+                "EXCEPTION: get_summary HTTPoison Location\n" <>
+                  Exception.format(:error, err, __STACKTRACE__)
+              )
+
+              nil
+          end
+
+        _ ->
+          IO.puts(
+            "EXCEPTION: get_summary HTTPoison\n" <> Exception.format(:error, err, __STACKTRACE__)
+          )
+
+          nil
+      end
+
     e ->
       IO.puts("EXCEPTION: get_summary")
       IO.puts(Exception.format(:error, e, __STACKTRACE__))

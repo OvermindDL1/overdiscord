@@ -306,11 +306,14 @@ defmodule Overdiscord.Web.CallbackController do
       case ref do
         # Snapshot
         "refs/heads/master" ->
-          send_event(
-            name,
-            title <>
-              "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989"
-          )
+          case repository do
+            "GregTech6/gregtech6" ->
+              send_event(
+                name,
+                title <>
+                  "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989"
+              )
+          end
 
           case Storage.get(@db, :kv, {:last_commit_seen, repository}, nil) do
             nil ->
