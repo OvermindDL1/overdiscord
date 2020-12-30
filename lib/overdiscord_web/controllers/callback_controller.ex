@@ -349,8 +349,8 @@ defmodule Overdiscord.Web.CallbackController do
               "New Release #{version}: https://gregtech.mechaenetia.com/downloads/gregtech_1.7.10/index.html#Downloads"
           )
 
-          send_event(name, title <> "?gt6 screenshot")
-          send_event(name, title <> "?gt6 changelog ##{version}")
+          send_event(name, "?gt6 screenshot")
+          send_event(name, "?gt6 changelog ##{version}")
 
           text(conn, "ok")
 
