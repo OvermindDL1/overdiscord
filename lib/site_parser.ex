@@ -1,4 +1,5 @@
 defmodule Overdiscord.SiteParser do
+  require Logger
   import Meeseeks.CSS
 
   def get_summary_cache_init(url) do
@@ -40,6 +41,8 @@ defmodule Overdiscord.SiteParser do
 
   def get_summary(url, opts) do
     IO.inspect({url, opts})
+
+    Process.flag(:trap_exit, true)
 
     {is_yt, uri} =
       case URI.parse(url) do
@@ -97,10 +100,66 @@ defmodule Overdiscord.SiteParser do
         {"accept-language", "en-US,en;q=0.9"}
       ]
 
+      get = fn
+        get, url, req_headers, count when count > 0 ->
+          try do
+            HTTPoison.get!(url, req_headers,
+              follow_redirect: true,
+              max_redirect: 10,
+              recv_timeout: 4500
+            )
+          rescue
+            err in HTTPoison.Error ->
+              case err do
+                %{reason: {:invalid_redirection, {:ok, 303, headers, _client}}} ->
+                  case :proplists.get_all_values("Location", headers) do
+                    [new_url] when new_url != url ->
+                      get.(get, new_url, req_headers, count - 1)
+
+                    _ ->
+                      Logger.info("Bad URL lookup")
+                  end
+              end
+          end
+
+        _get, _url, _req_headers, 0 ->
+          Logger.error("Tried getting url too many times")
+      end
+
+      # %{body: body, status_code: status_code, headers: headers} =
+      #   _response = HTTPoison.get!(url, req_headers, follow_redirect: true, max_redirect: 10, recv_timeout: 2000)
+
+      task = Task.async(fn -> get.(get, url, req_headers, 5) end)
+      # task = Task.async(fn -> try do
+      #                          HTTPoison.get!(url, req_headers, follow_redirect: true, max_redirect: 10, recv_timeout: 2000)
+      #                        rescue
+      #                          err in HTTPoison.Error ->
+      #                            case err do
+      #                              %{reason: {:invalid_redirection, {:ok, 303, headers, _client}}} ->
+      #                            end
+      #                        end
+      # end)
+      # %{body: body, status_code: status_code, headers: headers} = Task.await(task, 2500)
       %{body: body, status_code: status_code, headers: headers} =
-        _response = HTTPoison.get!(url, req_headers, follow_redirect: true, max_redirect: 10)
+        case Task.yield(task, 4600) || Task.shutdown(task, 100) do
+          nil ->
+            Logger.info("Slow URL lookup took longer than 2000 or died")
+            %{body: "", status_code: 599, headers: []}
+
+          {:exit, term} ->
+            Logger.info("Bad URL lookup crashed: #{inspect(term)}")
+            %{body: "", status_code: 598, headers: []}
+
+          {:ok, res} ->
+            res
+        end
+
+      IO.inspect({status_code, headers})
 
       case status_code do
+        code when code >= 500 and code <= 599 ->
+          "URL lookup server error: #{status_code}"
+
         code when code >= 400 and code <= 499 ->
           # TODO:  Github returns a 4?? error code before the page fully exists, so check for github
           case uri do
@@ -219,6 +278,8 @@ defmodule Overdiscord.SiteParser do
       IO.puts("THROWN: get_summary")
       IO.puts(Exception.format(:error, e, __STACKTRACE__))
       nil
+  after
+    Process.flag(:trap_exit, false)
   end
 
   defp get_general(doc, opts) do

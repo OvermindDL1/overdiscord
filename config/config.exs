@@ -22,7 +22,9 @@ use Mix.Config
 #
 
 config :logger,
-  level: :info
+  level: :info,
+  handle_otp_reports: true,
+  handle_sasl_reports: true
 
 # format: "$time $metadata[$level] $message\n",
 # metadata: [:request_id]
