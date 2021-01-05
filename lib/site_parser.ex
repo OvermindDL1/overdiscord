@@ -146,9 +146,14 @@ defmodule Overdiscord.SiteParser do
             Logger.info("Slow URL lookup took longer than 2000 or died")
             %{body: "", status_code: 599, headers: []}
 
+          {:exit, %HTTPoison.Error{reason: {:tls_alert, _}} = err} ->
+            Logger.info("Bad URL SSL: #{inspect(err)}")
+            %{body: "", status_code: 500, headers: []}
+
           {:exit, term} ->
             Logger.info("Bad URL lookup crashed: #{inspect(term)}")
-            %{body: "", status_code: 598, headers: []}
+            # %{body: "", status_code: 598, headers: []}
+            %{body: "", status_code: 500, headers: []}
 
           {:ok, res} ->
             res
