@@ -1,4 +1,3 @@
-
 defmodule Overdiscord.Hooks.Commands.System do
   require Logger
 
@@ -12,11 +11,11 @@ defmodule Overdiscord.Hooks.Commands.System do
 
   def simple_cmd_def(func, description, args \\ 0) do
     %{
-      description: description,
+      help: %{nil => description},
       args: args,
       strict: [],
       aliases: [],
-      callback: {__MODULE__, func, []},
+      callback: {__MODULE__, func, []}
     }
   end
 
@@ -25,17 +24,58 @@ defmodule Overdiscord.Hooks.Commands.System do
       strict: [],
       aliases: [],
       args: 0,
+      help: %{nil => "Commands related to the bot system itself"},
       sub_parsers: %{
-        "uptime" => %{
-                    description: "Get this bot current uptime",
-                    args: 0,
-                    strict: [],
-                    aliases: [],
-                    callback: {__MODULE__, :handle_cmd_uptime, []},
-    },
-        "stats" => simple_cmd_def(:handle_cmd_stats, "Display this bot system statistics")
+        "uptime" => simple_cmd_def(:handle_cmd_uptime, "See this bot current uptime"),
+        "stats" => simple_cmd_def(:handle_cmd_stats, "Display this bot system statistics"),
+        "restart" => simple_cmd_def(:handle_cmd_restart, "Restart the bot VM"),
+        "reboot" => simple_cmd_def(:handle_cmd_reboot, "Reboot the bot system"),
+        "shutdown" =>
+          simple_cmd_def(
+            :handle_cmd_shutdown,
+            "Shutdown the bot, should be restarted automatically 'soon', refreshes environment"
+          )
       }
     }
+  end
+
+  def handle_cmd_restart(%{auth: auth} = arg) do
+    if auth.permissions.({:cmd, arg}) do
+      spawn(fn ->
+        Process.sleep(1000)
+        :init.restart()
+      end)
+
+      "Restarting this bot in 1 second..."
+    else
+      "You do not have access to restart this bot"
+    end
+  end
+
+  def handle_cmd_reboot(%{auth: auth} = arg) do
+    if auth.permissions.({:cmd, arg}) do
+      spawn(fn ->
+        Process.sleep(1000)
+        :init.reboot()
+      end)
+
+      "Rebooting this bot in 1 second..."
+    else
+      "You do not have access to reboot this bot"
+    end
+  end
+
+  def handle_cmd_shutdown(%{auth: auth} = arg) do
+    if auth.permissions.({:cmd, arg}) do
+      spawn(fn ->
+        Process.sleep(1000)
+        :init.stop()
+      end)
+
+      "Shutting down this bot in 1 second..."
+    else
+      "You do not have access to shut down this bot"
+    end
   end
 
   def uptime() do
@@ -44,13 +84,17 @@ defmodule Overdiscord.Hooks.Commands.System do
     {hours, min} = {div(min, 60), rem(min, 60)}
     {days, hours} = {div(hours, 24), rem(hours, 24)}
 
-    uptime = Stream.zip([min, hours, days], ["m", "h", "d"])
-    |> Enum.reduce("", fn
-      {0, _glyph}, acc -> acc
-      {t, glyph}, acc -> " #{t}" <> glyph <> acc
-    end)
+    uptime =
+      Stream.zip([min, hours, days], ["m", "h", "d"])
+      |> Enum.reduce("", fn
+        {0, _glyph}, acc -> acc
+        {t, glyph}, acc -> " #{t}" <> glyph <> acc
+      end)
 
-    String.trim(uptime)
+    case String.trim(uptime) do
+      "" -> "<1m"
+      uptime -> uptime
+    end
   end
 
   def handle_cmd_uptime(_arg) do
@@ -85,22 +129,24 @@ defmodule Overdiscord.Hooks.Commands.System do
       ["Code Memory: ", code_memory, "\n"],
       ["IO Output: ", io_output, "\n"],
       ["ETS Memory: ", ets_memory, "\n"],
-      ["Atom Memory: ", atom_memory, "\n"],
+      ["Atom Memory: ", atom_memory, "\n"]
     ]
 
-    msg_discord = [
-      {"Uptime", uptime},
-      {"Processes", processes},
-      {"Total Memory", total_memory},
-      {"IO Input", io_input},
-      {"Process Memory", process_memory},
-      {"Code Memory", code_memory},
-      {"IO Output", io_output},
-      {"ETS Memory", ets_memory},
-      {"Atom Memory", atom_memory},
-    ] |> Enum.reduce(@red_embed, fn {name, value}, embed ->
-      field(embed, name, value, inline: true)
-    end)
+    msg_discord =
+      [
+        {"Uptime", uptime},
+        {"Processes", processes},
+        {"Total Memory", total_memory},
+        {"IO Input", io_input},
+        {"Process Memory", process_memory},
+        {"Code Memory", code_memory},
+        {"IO Output", io_output},
+        {"ETS Memory", ets_memory},
+        {"Atom Memory", atom_memory}
+      ]
+      |> Enum.reduce(@red_embed, fn {name, value}, embed ->
+        field(embed, name, value, inline: true)
+      end)
 
     %{msg: to_string(msg), msg_discord: msg_discord, reply?: true}
   end

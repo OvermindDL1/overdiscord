@@ -14,23 +14,26 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
         v: :verbose
       ],
       args: 0,
+      help: %{
+        nil => "GT6 related commands"
+      },
       sub_parsers: %{
         "screenshot" => %{
-          description: "Get the most recently updated screenshot URL",
+          help: %{nil: "Get the most recently updated screenshot URL"},
           args: 0,
           strict: [],
           aliases: [],
           callback: {__MODULE__, :handle_cmd_screenshot, []}
         },
         "changelog" => %{
-          description: "Show the GT6 changelog",
+          help: %{nil: "Show the GT6 changelog"},
           args: 0..1,
           strict: [],
           aliases: [],
           callback: {__MODULE__, :handle_cmd_changelog, []},
           sub_parsers: %{
             "link" => %{
-              description: "Show the GT6 Changelog URL",
+              help: %{nil: "Show the GT6 Changelog URL"},
               args: 0,
               strict: [],
               aliases: [],
@@ -60,7 +63,7 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
                   "\uFEFF." <> desc -> desc
                   # "\uFEFF" <> desc -> desc
                   # Should always have a dot...
-                  desc -> "Blargh: " <> desc
+                  desc -> desc
                 end
 
               "https://gregtech.overminddl1.com#{url}\n#{description}"
@@ -72,6 +75,25 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
 
       _ ->
         "Unable to retrieve image URL, report to @OvermindDL1" |> log(:error)
+    end
+  end
+
+  def screenshot_poll() do
+    screenshot = handle_cmd_screenshot(:console)
+
+    Storage.get(:gt6, :kv, :screenshot_poll, nil)
+    |> case do
+      nil -> screenshot
+      ^screenshot -> nil
+      old_screenshot when is_binary(old_screenshot) -> screenshot
+    end
+    |> case do
+      nil ->
+        nil
+
+      screenshot ->
+        Storage.put(:gt6, :kv, :screenshot_poll, screenshot)
+        Overdiscord.EventPipe.inject({:system, "Screenshot Poller"}, %{msg: "?gt6 screenshot"})
     end
   end
 

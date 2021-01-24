@@ -22,7 +22,7 @@ defmodule Overdiscord.Hooks.CommandParser do
       },
       "g" => Commands.GameResource.parser_def(),
       "gt6" => Commands.GT6.parser_def(),
-      "system" => Commands.System.parser_def(),
+      "system" => Commands.System.parser_def()
     }
   end
 
