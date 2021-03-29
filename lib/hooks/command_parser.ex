@@ -99,7 +99,7 @@ defmodule Overdiscord.Hooks.CommandParser do
         end
 
       parser ->
-        parser
+        {parser, ""}
     end
   end
 
