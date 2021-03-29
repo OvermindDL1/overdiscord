@@ -1,6 +1,8 @@
 defmodule Overdiscord.Web.CallbackController do
   use Overdiscord.Web, :controller
 
+  require Logger
+
   import Meeseeks.CSS
 
   alias Overdiscord.Storage
@@ -306,6 +308,8 @@ defmodule Overdiscord.Web.CallbackController do
       case ref do
         # Snapshot
         "refs/heads/master" ->
+          name = name <> "-SNAPSHOT"
+
           case repository do
             "GregTech6/gregtech6" ->
               send_event(
@@ -343,6 +347,8 @@ defmodule Overdiscord.Web.CallbackController do
 
         # Release
         "refs/tags/v" <> version ->
+          name = name <> "-Release"
+
           send_event(
             name,
             title <>
@@ -450,7 +456,7 @@ defmodule Overdiscord.Web.CallbackController do
     else
       conn
       |> put_status(:unauthorized)
-      |> text("unauthenticated token")
+      |> text("unauthorized")
     end
   end
 
@@ -460,5 +466,85 @@ defmodule Overdiscord.Web.CallbackController do
     conn
     # |> put_status(:not_implemented)
     |> text("unhandled")
+  end
+
+  def maven(conn, %{"action" => "regen", "paths" => paths, "token" => token} = params) do
+    IO.inspect(params, label: :MavenCallback)
+    token_hash = Base.encode16(:crypto.hash(:sha256, token))
+
+    if token_hash == "9CFA303BDCDFFA72E341495C2ADEB61448E568E2058E8B9175748D520D79BE41" do
+      Logger.info("Maven website regenerated: #{inspect(paths)}")
+
+      event_if_maven_updated(
+        url_content_of:
+          "https://gregtech.overminddl1.com/com/gregoriust/gregtech/screenshots/LATEST.image.url",
+        event: "?gt6 screenshot"
+      )
+
+      conn
+      |> json(%{status: :success})
+
+      # |> text("{'status': 'success'}")
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> text("unauthorized")
+    end
+  end
+
+  def maven(conn, params) do
+    IO.inspect(params, label: :MavenCallbackUnmatched)
+    text(conn, "unhandled")
+  end
+
+  def event_if_maven_updated(opts \\ []) do
+    name = opts[:name] || "MAVEN"
+
+    cond do
+      opts[:url_content_of] ->
+        opts[:url_content_of]
+        |> HTTPoison.get!(follow_redirect: true)
+        |> case do
+          %{body: content, status_code: 200} ->
+            {opts[:key] || opts[:url_content_of], content}
+
+          res ->
+            Logger.warn(
+              "event_if_maven_updated failed in url_content_of with opts `#[inspect opts]` with result: #[inspect res]`"
+            )
+
+            nil
+        end
+    end
+    |> case do
+      nil ->
+        nil
+
+      {key, value} ->
+        case Storage.get(@db, :kv, {:maven, :updated, key}, nil) do
+          ^value ->
+            nil
+
+          _old_value ->
+            Storage.put(@db, :kv, {:maven, :updated, key}, value)
+            {key, value, opts}
+        end
+    end
+    |> case do
+      nil ->
+        Logger.info("event_if_maven_updated success but nothing to do: #[inspect opts}]")
+        nil
+
+      {key, value, opts} ->
+        cond do
+          opts[:event] ->
+            case opts[:event] do
+              msg when is_binary(msg) ->
+                Overdiscord.EventPipe.inject({:system, name}, %{msg: msg, simple_msg: msg})
+                Logger.info("event_if_maven_updated success for opts: #{inspect(opts)}")
+                nil
+            end
+        end
+    end
   end
 end

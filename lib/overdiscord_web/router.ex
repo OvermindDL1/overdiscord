@@ -43,5 +43,6 @@ defmodule Overdiscord.Web.Router do
     post("/webhook/gitea", CallbackController, :gitea)
     post("/webhook/concourse", CallbackController, :concourse)
     post("/webhook/ci", CallbackController, :ci)
+    post("/webhook/maven", CallbackController, :maven)
   end
 end
