@@ -23,7 +23,8 @@ defmodule Overdiscord.Hooks.CommandParser do
       "g" => Commands.GameResource.parser_def(),
       "gt6" => Commands.GT6.parser_def(),
       "system" => Commands.System.parser_def(),
-      "todo" => Commands.Todo.parser_def()
+      "todo" => Commands.Todo.parser_def(),
+      "web" => Commands.Web.parser_def()
     }
   end
 
@@ -53,11 +54,52 @@ defmodule Overdiscord.Hooks.CommandParser do
 
     case ElixirParse.parse(msg, allowed_types: @allowed_types) do
       {:error, invalid} ->
-        IO.inspect({:auth, :respond, :invalid_input, invalid})
+        IO.inspect({:auth, :respond, :invalid_input, invalid}, label: :HandleCommandError)
 
       {:ok, cmd, unparsed_args} ->
-        IO.inspect({cmd, unparsed_args})
+        IO.inspect({cmd, unparsed_args}, label: :HandleCommandOk)
         call_command(auth, cmd, unparsed_args, prefix: prefix)
+    end
+  end
+
+  def lookup_command(cmd) do
+    cmds = parse_commands()
+
+    case cmds[cmd] do
+      nil ->
+        cmds
+        |> Enum.flat_map(fn
+          {new_cmd, %{hoist: hoists} = parser} ->
+            case hoists[cmd] do
+              nil ->
+                []
+
+              false ->
+                []
+
+              expansion when is_binary(expansion) ->
+                [{new_cmd, expansion}]
+
+              true ->
+                [{new_cmd, cmd}]
+            end
+
+          _ ->
+            []
+        end)
+        |> case do
+          [] ->
+            nil
+
+          [{new_cmd, prefix_unparsed_args}] ->
+            {cmds[new_cmd], prefix_unparsed_args}
+
+          many when is_list(many) ->
+            {{:ambiguous, many}, ""}
+        end
+
+      parser ->
+        parser
     end
   end
 
@@ -72,11 +114,19 @@ defmodule Overdiscord.Hooks.CommandParser do
   end
 
   defp call_command(auth, cmd, unparsed_args, opts) do
-    case parse_commands()[cmd] do
+    # TODO: Add permission check on all commands for any access at all once default permissions are built
+    {parser, prefix_args} = lookup_command(cmd)
+
+    case parser do
       nil ->
         nil
 
+      {:ambiguous, amb} ->
+        "Ambiguous command, choices: #{inspect(amb)}"
+
       parser ->
+        unparsed_args = String.trim("#{prefix_args} #{unparsed_args}")
+
         split_args =
           Regex.scan(~R/(?:"((?:\\.*|[^"])+)"|([^\s]+))/, unparsed_args, capture: :all_but_first)
           |> List.flatten()

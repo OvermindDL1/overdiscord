@@ -1434,14 +1434,6 @@ defmodule Overdiscord.IRC.Bridge do
           "Guild Emojis: #{Enum.join(guild_emojis, ", ")}"
         ]
       end,
-      "udef" => fn _cmd, args, _auth, _chan, _state ->
-        case Overdiscord.SiteParser.get_summary_cached(
-               "https://www.urbandictionary.com/define.php?term=" <> args
-             ) do
-          nil -> "No definition found for: " <> args
-          defi -> defi
-        end
-      end,
       "discordavatar" => fn _cmd, args, auth, _chan, state ->
         is_admin = is_admin(auth)
 
