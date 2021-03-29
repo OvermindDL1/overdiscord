@@ -3,7 +3,7 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
 
   alias Overdiscord.Storage
 
-  import Overdiscord.Hooks.CommandParser, only: [log: 1, log: 2]
+  import Overdiscord.Hooks.CommandParser, only: [log: 2]
 
   def parser_def() do
     %{

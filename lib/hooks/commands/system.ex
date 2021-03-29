@@ -1,10 +1,10 @@
 defmodule Overdiscord.Hooks.Commands.System do
   require Logger
 
-  alias Overdiscord.Storage
+  # alias Overdiscord.Storage
   alias Alchemy.Embed
 
-  import Overdiscord.Hooks.CommandParser, only: [log: 1, log: 2]
+  # import Overdiscord.Hooks.CommandParser, only: [log: 1, log: 2]
   import Alchemy.Embed
 
   @red_embed %Embed{color: 0xD44480}

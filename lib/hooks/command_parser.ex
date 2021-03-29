@@ -22,7 +22,8 @@ defmodule Overdiscord.Hooks.CommandParser do
       },
       "g" => Commands.GameResource.parser_def(),
       "gt6" => Commands.GT6.parser_def(),
-      "system" => Commands.System.parser_def()
+      "system" => Commands.System.parser_def(),
+      "todo" => Commands.Todo.parser_def()
     }
   end
 
@@ -276,7 +277,7 @@ defmodule Overdiscord.Hooks.CommandParser do
     end
   end
 
-  defp escape_inline_code(string) do
+  defp escape_inline_code(string) when is_binary(string) do
     count =
       string
       |> String.graphemes()
@@ -284,6 +285,10 @@ defmodule Overdiscord.Hooks.CommandParser do
 
     delim = String.duplicate("`", count + 1)
     delim <> string <> delim
+  end
+
+  defp escape_inline_code(nil) do
+    ""
   end
 
   defp get_args_required_from_parser(%{args: i}) when is_integer(i) and i >= 0, do: {i, 0}
