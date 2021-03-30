@@ -1,7 +1,45 @@
 defmodule Overdiscord.Commands do
+  require Logger
+
   use Alchemy.Events
 
   alias Overdiscord.Storage
+
+  @max_msg_size 1900
+
+  def string_hard_split(msg, size \\ @max_msg_size, acc \\ [])
+
+  def string_hard_split("", _size, acc) do
+    :lists.reverse(acc)
+  end
+
+  def string_hard_split(msg, size, acc) when byte_size(msg) > size do
+    {first, last} = String.split_at(msg, size)
+    string_hard_split(last, size, [first | acc])
+  end
+
+  def string_hard_split(msg, size, acc) do
+    string_hard_split("", size, [msg | acc])
+  end
+
+  def recombine_strings(msgs, combiner, size \\ @max_msg_size, acc \\ [])
+
+  def recombine_strings([], _combiner, _size, acc) do
+    :lists.reverse(acc)
+  end
+
+  def recombine_strings([msg | rest], combiner, size, []) do
+    recombine_strings(rest, combiner, size, [msg])
+  end
+
+  def recombine_strings([msg | rest], combiner, size, [acc_first | _acc_rest] = acc)
+      when byte_size(acc_first) + byte_size(msg) + byte_size(combiner) > size do
+    recombine_strings(rest, combiner, size, [msg | acc])
+  end
+
+  def recombine_strings([msg | rest], combiner, size, [acc_first | acc_rest]) do
+    recombine_strings(rest, combiner, size, [acc_first <> combiner <> msg | acc_rest])
+  end
 
   def send_event(auth, event_data, to)
 
@@ -20,6 +58,37 @@ defmodule Overdiscord.Commands do
 
   def send_event(auth, %{msg: msg}, to) do
     msg = Overdiscord.IRC.Bridge.convert_message_to_discord(msg)
+    # Using byte_size because discord may not operate on graphemes, just being careful...
+
+    msgs =
+      if byte_size(msg) > @max_msg_size do
+        fixed_msg =
+          msg
+          # Split into lines that are easy to break on first
+          |> String.split("\n")
+          # Then split individual lines that are too long
+          |> Enum.flat_map(fn msg ->
+            if byte_size(msg) > @max_msg_size do
+              msg
+              |> String.split(msg, " ")
+              # Hard split anywhere now
+              |> Enum.flat_map(fn msg ->
+                string_hard_split(msg)
+              end)
+            else
+              [msg]
+            end
+            |> recombine_strings(" ")
+          end)
+          |> recombine_strings("\n")
+
+        fixed_msg
+      else
+        [msg]
+      end
+
+    Logger.warn(inspect({:done, msgs}))
+
     # Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")
     if to == "320192373437104130" do
       wh = Overdiscord.IRC.Bridge.alchemy_webhook()
@@ -46,8 +115,12 @@ defmodule Overdiscord.Commands do
         [%{user: %{id: id, avatar: avatar}}] when avatar not in [nil, ""] ->
           avatar_url = "https://cdn.discordapp.com/avatars/#{id}/#{avatar}.jpg?size=128"
 
-          Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: avatar_url)
-          |> IO.inspect(label: DiscordWebhookSendResult)
+          Enum.each(msgs, fn msg ->
+            Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: avatar_url)
+            |> IO.inspect(label: DiscordWebhookSendResult0)
+
+            Process.sleep(250)
+          end)
 
         _ ->
           case username do
@@ -61,15 +134,30 @@ defmodule Overdiscord.Commands do
 
               case Overdiscord.IRC.Bridge.db_get(db, :kv, {:discord_avatar, username}) do
                 nil ->
-                  Alchemy.Webhook.send(wh, {:content, msg}, username: username)
+                  Enum.each(msgs, fn msg ->
+                    Alchemy.Webhook.send(wh, {:content, msg}, username: username)
+                    |> IO.inspect(label: DiscordWebhookSendResult1)
+
+                    Process.sleep(250)
+                  end)
 
                 aurl ->
-                  Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: aurl)
+                  Enum.each(msgs, fn msg ->
+                    Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: aurl)
+                    |> IO.inspect(label: DiscordWebhookSendResult2)
+
+                    Process.sleep(25)
+                  end)
               end
           end
       end
     else
-      Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
+      Enum.each(msgs, fn msg ->
+        Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
+        |> IO.inspect(label: DiscordSendMessageResult0)
+
+        Process.sleep(250)
+      end)
     end
   end
 
