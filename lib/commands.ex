@@ -5,6 +5,8 @@ defmodule Overdiscord.Commands do
 
   alias Overdiscord.Storage
 
+  @db :discord_commands
+
   @max_msg_size 1900
 
   def string_hard_split(msg, size \\ @max_msg_size, acc \\ [])
@@ -190,6 +192,7 @@ defmodule Overdiscord.Commands do
     # Ignore self webhook
     if not String.starts_with?(content, "!") and content != "" and msg.webhook_id != wh_id do
       Overdiscord.EventPipe.inject(msg, %{msg: get_msg_content_processed(msg)})
+      Storage.put(@db, :list_truncated, {:historical_messages, channel_id}, {msg, 10000, 9000})
     end
 
     # Ignore self webhook
@@ -276,6 +279,37 @@ defmodule Overdiscord.Commands do
     IO.inspect(msg, label: :EditedMsg)
   end
 
+  def on_msg_delete(msg_id, chan_id) do
+    old_msgs = Storage.get(@db, :list, {:historical_messages, chan_id})
+
+    case Enum.find(old_msgs, fn %{id: id} -> id == msg_id end) do
+      nil ->
+        Logger.info(
+          "Discord deleted old message #{msg_id} from channel #{chan_id} but too old to be in history"
+        )
+
+      %{author: %{username: username}} = msg ->
+        Logger.info(
+          "Discord deleted old message #{msg_id} from channel #{chan_id}: #{inspect(msg)}"
+        )
+
+        short_msg =
+          msg
+          |> get_msg_content_processed()
+          |> String.split("\n", parts: 2, trim: true)
+          |> List.first()
+          |> String.split_at(128)
+          |> case do
+            {short_msg, ""} -> short_msg
+            {short_msg, _} -> short_msg <> "..."
+          end
+
+        Overdiscord.EventPipe.inject(msg, %{
+          msg: "Discord Deleted Msg from `#{username}`: " <> short_msg
+        })
+    end
+  end
+
   def on_presence_update(
         %{
           guild_id: "225742287991341057" = guild_id,
@@ -325,6 +359,7 @@ defmodule Overdiscord.Commands do
     use Overdiscord.Commands.GD
     Alchemy.Cogs.EventHandler.add_handler({:message_create, {__MODULE__, :on_msg}})
     Alchemy.Cogs.EventHandler.add_handler({:message_update, {__MODULE__, :on_msg_edit}})
+    Alchemy.Cogs.EventHandler.add_handler({:message_delete, {__MODULE__, :on_msg_delete}})
     Alchemy.Cogs.EventHandler.add_handler({:presence_update, {__MODULE__, :on_presence_update}})
 
     spawn(fn ->
