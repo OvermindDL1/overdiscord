@@ -79,22 +79,23 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
   end
 
   def screenshot_poll() do
-    screenshot = handle_cmd_screenshot(:console)
-
-    Storage.get(:gt6, :kv, :screenshot_poll, nil)
-    |> case do
-      nil -> screenshot
-      ^screenshot -> nil
-      old_screenshot when is_binary(old_screenshot) -> screenshot
-    end
-    |> case do
-      nil ->
-        nil
-
-      screenshot ->
-        Storage.put(:gt6, :kv, :screenshot_poll, screenshot)
-        Overdiscord.EventPipe.inject({:system, "Screenshot Poller"}, %{msg: "?gt6 screenshot"})
-    end
+    # Screenshots are now updated from the GT6 maven refresh callback, don't duplicate the functionality
+    # screenshot = handle_cmd_screenshot(:console)
+    #
+    # Storage.get(:gt6, :kv, :screenshot_poll, nil)
+    # |> case do
+    #  nil -> screenshot
+    #  ^screenshot -> nil
+    #  old_screenshot when is_binary(old_screenshot) -> screenshot
+    # end
+    # |> case do
+    #  nil ->
+    #    nil
+    #
+    #  screenshot ->
+    #    Storage.put(:gt6, :kv, :screenshot_poll, screenshot)
+    #    Overdiscord.EventPipe.inject({:system, "Screenshot Poller"}, %{msg: "?gt6 screenshot"})
+    # end
   end
 
   def handle_cmd_changelog_link(_arg) do
