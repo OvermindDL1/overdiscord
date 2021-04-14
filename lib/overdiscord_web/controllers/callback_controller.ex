@@ -506,7 +506,7 @@ defmodule Overdiscord.Web.CallbackController do
         |> HTTPoison.get!(follow_redirect: true)
         |> case do
           %{body: content, status_code: 200} ->
-            {opts[:key] || opts[:url_content_of], content}
+            {opts[:key] || opts[:url_content_of], String.trim(content)}
 
           res ->
             Logger.warn(
