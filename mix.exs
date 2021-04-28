@@ -55,7 +55,7 @@ defmodule Overdiscord.Mixfile do
       {:phoenix_pubsub, "~> 1.1"},
       {:phoenix_html, "~> 2.13.3"},
       {:phoenix_live_reload, "~> 1.0", only: :dev},
-      {:gettext, "~> 0.17.0"},
+      {:gettext, "~> 0.18.2"},
       {:jason, "~> 1.0"},
       # {:rustler, "~> 0.18.0", override: true},
       # {:html5ever, "~> 0.6.1"},
