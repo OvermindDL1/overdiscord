@@ -28,7 +28,8 @@ defimplEx Discord, %Alchemy.Message{}, for: Overdiscord.Auth do
           _ ->
             false
         end
-      end
+      end,
+      trigger: msg
     }
   end
 end

@@ -1,8 +1,9 @@
 import ProtocolEx
 
-defimplEx IRC, {chan, %ExIRC.SenderInfo{}, %Overdiscord.IRC.Bridge.State{}} when is_binary(chan),
-  for: Overdiscord.Auth do
-  def to_auth({chan, senderinfo, state}) do
+defimplEx IRC,
+          {chan, %ExIRC.SenderInfo{}, msg, %Overdiscord.IRC.Bridge.State{}} when is_binary(chan),
+          for: Overdiscord.Auth do
+  def to_auth({chan, senderinfo, msg, state}) do
     _host = senderinfo.host
     user = senderinfo.user
     nick = senderinfo.nick
@@ -31,7 +32,8 @@ defimplEx IRC, {chan, %ExIRC.SenderInfo{}, %Overdiscord.IRC.Bridge.State{}} when
           _ ->
             false
         end
-      end
+      end,
+      trigger: msg
     }
   end
 end

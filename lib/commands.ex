@@ -43,6 +43,42 @@ defmodule Overdiscord.Commands do
     recombine_strings(rest, combiner, size, [acc_first <> combiner <> msg | acc_rest])
   end
 
+  def create_reply(guild_id, auth, %{reply?: reply}) do
+    create_reply(guild_id, auth, reply)
+  end
+
+  def create_reply(guild_id, auth, false) do
+    nil
+  end
+
+  def create_reply(guild_id, auth, nil) do
+    nil
+  end
+
+  def create_reply(guild_id, auth, _true) do
+    create_reply(guild_id, auth)
+  end
+
+  def create_reply(guild_id, %Overdiscord.Auth.AuthData{} = auth) do
+    case auth do
+      %{trigger: msg} when is_binary(msg) ->
+        Logger.info("TODO: Record msg ID's from webhook to use as a reply for IRC messages")
+        nil
+
+      %{trigger: %Alchemy.Message{} = msg} ->
+        %Alchemy.MessageReference{
+          guild_id: guild_id,
+          message_id: msg.id,
+          channel_id: msg.channel_id,
+          fail_if_not_exists: false
+        }
+
+      _ ->
+        Logger.info("Discord create_reply had none or unknown trigger: #{inspect(auth.trigger)}")
+        nil
+    end
+  end
+
   def send_event(auth, event_data, to)
 
   def send_event(auth, %{msg_discord: msg}, to) do
@@ -58,10 +94,12 @@ defmodule Overdiscord.Commands do
     end
   end
 
-  def send_event(auth, %{msg: msg}, to) do
+  def send_event(auth, %{msg: msg} = event, to) do
+    IO.inspect({auth, event}, label: :PreEvent)
     msg = Overdiscord.IRC.Bridge.convert_message_to_discord(msg)
-    # Using byte_size because discord may not operate on graphemes, just being careful...
+    IO.inspect(msg, label: :PostConvert)
 
+    # Using byte_size because discord may not operate on graphemes, just being careful...
     msgs =
       if byte_size(msg) > @max_msg_size do
         fixed_msg =
@@ -96,18 +134,25 @@ defmodule Overdiscord.Commands do
       wh = Overdiscord.IRC.Bridge.alchemy_webhook()
       username = auth.nickname
       down_username = String.downcase(username)
+      guild_id = nil
 
       try do
-        Alchemy.Cache.search(:members, fn
-          %{user: %{username: ^username}} ->
-            true
+        case create_reply(guild_id, auth, event) do
+          nil ->
+            Alchemy.Cache.search(:members, fn
+              %{user: %{username: ^username}} ->
+                true
 
-          %{user: %{username: discord_username}} ->
-            down_username == String.downcase(discord_username)
+              %{user: %{username: discord_username}} ->
+                down_username == String.downcase(discord_username)
 
-          _ ->
-            false
-        end)
+              _ ->
+                false
+            end)
+
+          reply ->
+            [reply]
+        end
       rescue
         _ -> []
       catch
@@ -121,6 +166,12 @@ defmodule Overdiscord.Commands do
             Alchemy.Webhook.send(wh, {:content, msg}, username: username, avatar_url: avatar_url)
             |> IO.inspect(label: DiscordWebhookSendResult0)
 
+            Process.sleep(250)
+          end)
+
+        [%Alchemy.MessageReference{} = reply] ->
+          Enum.each(msgs, fn msg ->
+            Alchemy.Client.send_message(to, msg, message_reference: reply)
             Process.sleep(250)
           end)
 
@@ -155,7 +206,13 @@ defmodule Overdiscord.Commands do
       end
     else
       Enum.each(msgs, fn msg ->
-        Alchemy.Client.send_message(to, "**#{auth.nickname}:** #{msg}")
+        {msg, options} =
+          case create_reply(nil, auth, event) do
+            nil -> {"**#{auth.nickname}** #{msg}", []}
+            reply -> {msg, [message_reference: reply]}
+          end
+
+        Alchemy.Client.send_message(to, msg, options)
         |> IO.inspect(label: DiscordSendMessageResult0)
 
         Process.sleep(250)
@@ -184,7 +241,7 @@ defmodule Overdiscord.Commands do
         } = msg
       ) do
     discord_activity(:discord)
-    # IO.inspect(msg, label: :DiscordMsg)
+    IO.inspect(msg, label: :DiscordMsg)
 
     %{id: wh_id} = Overdiscord.IRC.Bridge.alchemy_webhook()
     # TODO:  Definitely need to make a protocol to parse these event_data's out!
@@ -205,7 +262,7 @@ defmodule Overdiscord.Commands do
           :ok
 
         content ->
-          # IO.inspect("Msg dump: #{inspect msg}")
+          # IO.inspect(msg, label: :msg_dump)
           IO.inspect("Sending message from Discord to IRC: #{username}: #{content}")
           # irc_content = get_msg_content_processed(msg)
           #        Overdiscord.IRC.Bridge.send_msg(username, irc_content)

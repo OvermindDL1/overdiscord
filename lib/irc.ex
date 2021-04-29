@@ -690,7 +690,7 @@ defmodule Overdiscord.IRC.Bridge do
         :ok
 
       omsg ->
-        spawn(fn -> Overdiscord.EventPipe.inject({chan, auth, state}, %{msg: msg}) end)
+        spawn(fn -> Overdiscord.EventPipe.inject({chan, auth, msg, state}, %{msg: msg}) end)
         dispatch_msg("#{nick}: #{msg}")
         if(user === "~Gregorius", do: handle_greg(msg, state.client))
         msg = convert_message_to_discord(msg)
@@ -708,7 +708,7 @@ defmodule Overdiscord.IRC.Bridge do
         :ok
 
       msg ->
-        spawn(fn -> Overdiscord.EventPipe.inject({chan, auth, state}, %{msg: msg}) end)
+        spawn(fn -> Overdiscord.EventPipe.inject({chan, auth, msg, state}, %{msg: msg}) end)
         message_extra(:msg, msg, auth, chan, state)
     end
 
@@ -722,7 +722,7 @@ defmodule Overdiscord.IRC.Bridge do
 
       msg ->
         IO.inspect("BLAH!")
-        spawn(fn -> Overdiscord.EventPipe.inject({nick, auth, state}, %{msg: msg}) end)
+        spawn(fn -> Overdiscord.EventPipe.inject({nick, auth, msg, state}, %{msg: msg}) end)
         message_extra(:msg, msg, auth, nick, state)
     end
 
@@ -734,7 +734,7 @@ defmodule Overdiscord.IRC.Bridge do
     if(user === "~Gregorius", do: handle_greg(action, state.client))
 
     spawn(fn ->
-      Overdiscord.EventPipe.inject({chan, auth, state}, %{
+      Overdiscord.EventPipe.inject({chan, auth, nick <> " " <> action, state}, %{
         action: action,
         msg: "_#{action}_"
       })
