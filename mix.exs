@@ -53,7 +53,7 @@ defmodule Overdiscord.Mixfile do
       {:plug_cowboy, "~> 2.1.0"},
       {:phoenix, "~> 1.4.9"},
       {:phoenix_pubsub, "~> 1.1"},
-      {:phoenix_html, "~> 2.13.3"},
+      {:phoenix_html, "~> 2.14.3"},
       {:phoenix_live_reload, "~> 1.0", only: :dev},
       {:gettext, "~> 0.17.0"},
       {:jason, "~> 1.0"},
