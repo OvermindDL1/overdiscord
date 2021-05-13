@@ -2579,8 +2579,10 @@ defmodule Overdiscord.IRC.Bridge do
     Regex.scan(~R"\((https?://\S+)\)|(https?://\S+)"i, msg, capture: :all_but_first)
     # |> IO.inspect(label: :ExtraScan)
     |> Enum.map(&Enum.join/1)
-    # |> IO.inspect(label: :ExtraScan1)
+    |> IO.inspect(label: :ExtraScan1)
     |> Enum.map(fn url ->
+      url = String.trim_trailing(url, ">")
+
       if url =~ ~r/xkcd.com/i do
         []
       else
