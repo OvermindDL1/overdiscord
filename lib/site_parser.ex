@@ -162,7 +162,10 @@ defmodule Overdiscord.SiteParser do
       IO.inspect({status_code, headers})
 
       case status_code do
-        code when code >= 500 and code <= 599 ->
+        599 ->
+          "599: URL timed out"
+
+        code when code >= 500 and code <= 598 ->
           "URL lookup server error: #{status_code}"
 
         code when code >= 400 and code <= 499 ->
