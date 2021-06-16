@@ -9,6 +9,27 @@ defmodule Overdiscord.Commands do
 
   @max_msg_size 1900
 
+  @gt6_bear_discord "246773024559202305"
+
+  @name_banlist ["/h0nde", ".com", ".c0m"]
+
+  def member_joined(member_id) do
+    Logger.info("Member Joined: #{member_id}, waiting one second before querying Discord")
+    Process.sleep(1000)
+    case Alchemy.Client.get_member(@gt6_bear_discord, member_id) do
+      {:error, error} -> Logger.info("Member #{member_id} does not exist on gt6_bear_discord")
+      {:ok, %{user: %{username: username} = _user} = _member} ->
+        cond do
+          String.contains?(String.downcase(username), @name_banlist) ->
+            msg = "Banned user `#{member_id}`` because of name `#{username}` matching banlist: #{inspect @name_banlist}"
+            Logger.warn(msg)
+            Alchemy.Client.ban_member(@gt6_bear_discord, member_id, 1)
+            Alchemy.Client.send_message("495671588554014740", msg)
+          :else -> nil
+        end
+    end
+  end
+
   def string_hard_split(msg, size \\ @max_msg_size, acc \\ [])
 
   def string_hard_split("", _size, acc) do
@@ -418,6 +439,7 @@ defmodule Overdiscord.Commands do
     Alchemy.Cogs.EventHandler.add_handler({:message_update, {__MODULE__, :on_msg_edit}})
     Alchemy.Cogs.EventHandler.add_handler({:message_delete, {__MODULE__, :on_msg_delete}})
     Alchemy.Cogs.EventHandler.add_handler({:presence_update, {__MODULE__, :on_presence_update}})
+    Alchemy.Cogs.EventHandler.add_handler({:member_join, {__MODULE__, :member_joined}})
 
     spawn(fn ->
       Process.sleep(5000)

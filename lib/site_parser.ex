@@ -294,8 +294,9 @@ defmodule Overdiscord.SiteParser do
     with nil <- get_fragment_paragraph(doc, opts) |> IO.inspect(label: "Fragment Paragraph"),
          nil <- get_summary_opengraph(doc, opts) |> IO.inspect(label: "Opengraph"),
          nil <- get_summary_title_and_description(doc, opts) |> IO.inspect(label: "TitleDesc"),
-         nil <- get_summary_first_paragraph(doc, opts) |> IO.inspect(label: "First Paragraph"),
          nil <- get_summary_title(doc, opts) |> IO.inspect(label: "Title"),
+         nil <- get_summary_first_paragraph(doc, opts) |> IO.inspect(label: "First Paragraph"),
+         # nil <- get_summary_title(doc, opts) |> IO.inspect(label: "Title"),
          do: nil
   end
 
