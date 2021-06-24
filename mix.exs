@@ -38,7 +38,7 @@ defmodule Overdiscord.Mixfile do
       # {:exirc, "~> 1.0.1"},
       {:exirc, github: "bitwalker/exirc"},
       {:sizeable, "~> 1.0"},
-      {:meeseeks, "~> 0.15.1"},
+      {:meeseeks, "~> 0.16.0"},
       {:cachex, "~> 3.0"},
       {:exsync, "~> 0.2", only: :dev},
       {:dialyxir, "~> 0.5.1", only: [:dev, :test], runtime: false},
