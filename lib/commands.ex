@@ -16,16 +16,25 @@ defmodule Overdiscord.Commands do
   def member_joined(member_id) do
     Logger.info("Member Joined: #{member_id}, waiting one second before querying Discord")
     Process.sleep(1000)
+
     case Alchemy.Client.get_member(@gt6_bear_discord, member_id) do
-      {:error, error} -> Logger.info("Member #{member_id} does not exist on gt6_bear_discord")
+      {:error, error} ->
+        Logger.info("Member #{member_id} does not exist on gt6_bear_discord")
+
       {:ok, %{user: %{username: username} = _user} = _member} ->
         cond do
           String.contains?(String.downcase(username), @name_banlist) ->
-            msg = "Banned user `#{member_id}`` because of name `#{username}` matching banlist: #{inspect @name_banlist}"
+            msg =
+              "Banned user `#{member_id}`` because of name `#{username}` matching banlist: #{
+                inspect(@name_banlist)
+              }"
+
             Logger.warn(msg)
             Alchemy.Client.ban_member(@gt6_bear_discord, member_id, 1)
             Alchemy.Client.send_message("495671588554014740", msg)
-          :else -> nil
+
+          :else ->
+            nil
         end
     end
   end

@@ -52,6 +52,7 @@ defmodule Overdiscord.Hooks.Commands.GT6 do
     |> case do
       %{body: url, status_code: 200} ->
         url = String.trim(url)
+
         if not String.ends_with?(url, [".png", ".jpg", ".jpeg", ".gif", ".webp", ".webm"]) do
           "Invalid image URL, last uploaded file to the screenshots directory was not an image, advise GregoriusTechneticies and/or @OvermindDL1 to update the image"
         else
