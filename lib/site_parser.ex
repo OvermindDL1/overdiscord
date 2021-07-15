@@ -33,7 +33,7 @@ defmodule Overdiscord.SiteParser do
 
   def get_summary(url, opts \\ %{recursion_limit: 4})
 
-  def get_summary("http://demosthenes.org" <> _url, _opts), do: "No, bad Demosthenex!"
+  def get_summary("http://demosthenes.org" <> _url, _opts), do: "No, bad Demosthenex!  Use https!"
 
   def get_summary(_url, %{recursion_limit: -1}) do
     "URL recursed HTTP 3xx status codes too many times (>4), this is a *bad* site setup and should be reported to the URL owner"
