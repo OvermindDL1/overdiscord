@@ -49,7 +49,7 @@ defmodule Overdiscord.Mixfile do
       {:timex, "~> 3.6.1"},
       {:luerl, "~> 0.3"},
       {:protocol_ex, "~> 0.4.0"},
-      {:plug, "~> 1.8.2"},
+      {:plug, "~> 1.12.0"},
       {:plug_cowboy, "~> 2.1.0"},
       {:phoenix, "~> 1.4.9"},
       {:phoenix_pubsub, "~> 1.1"},
