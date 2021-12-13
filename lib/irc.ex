@@ -1204,6 +1204,7 @@ defmodule Overdiscord.IRC.Bridge do
       |> String.replace(~R/@?\bandyafw\b|@?\bandy\b|@?\banna\b/i, "<@179586256752214016>")
       |> String.replace(~R/@?\bcrazyj1984\b|@?\bcrazyj\b/i, "<@225742972145238018>")
       |> String.replace(~R/@?\bSpeiger\b/i, "<@90867844530573312>")
+      |> String.replace(~R/@?\bmitchej\b/i, "<@287804310509584387>")
       |> String.replace(~R/@?\bnetmc\b/i, "<@185586090416013312>")
       |> String.replace(~R/@?\be99+\b/i, "<@349598994193711124>")
       |> String.replace(~R/@?\bdbp\b|@?\bdpb\b/i, "<@138742528051642369>")
