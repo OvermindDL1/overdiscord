@@ -411,13 +411,13 @@ defmodule Overdiscord.SiteParser do
 
     lines =
       doc
-      |> Meeseeks.all(css(".TimelineItem-body"))
+      |> Meeseeks.all(css(".TimelineItem-body > ol > li"))
       |> Enum.flat_map(fn item ->
         with(
           name when is_binary(name) and bit_size(name) > 0 <-
             item
-            |> Meeseeks.one(css("img.avatar-user"))
-            |> Meeseeks.attr("alt")
+            |> Meeseeks.one(css(".commit-author"))
+            |> Meeseeks.text()
             |> to_string()
             |> String.trim()
             |> String.split("\n", parts: 2)
@@ -426,7 +426,7 @@ defmodule Overdiscord.SiteParser do
             |> String.trim(),
           line when is_binary(line) and bit_size(line) > 0 <-
             item
-            |> Meeseeks.one(css(".pr-1 code a"))
+            |> Meeseeks.one(css(".markdown-title"))
             |> Meeseeks.text()
             |> to_string()
             |> String.trim()
@@ -436,7 +436,7 @@ defmodule Overdiscord.SiteParser do
             |> String.trim(),
           commit when is_binary(commit) and bit_size(commit) > 0 <-
             item
-            |> Meeseeks.one(css(".ml-1 code a"))
+            |> Meeseeks.one(css(".text-mono.f6"))
             |> Meeseeks.text()
             |> to_string()
             |> String.trim()

@@ -1541,7 +1541,7 @@ defmodule Overdiscord.IRC.Bridge do
             url = String.trim(url)
 
             {type, url} =
-              case String.split(parts: 2, trim: true) do
+              case String.split(url, " ", parts: 2, trim: true) do
                 [url] -> {:rss_atom, url}
                 ["rss", url] -> {:rss_atom, url}
                 ["atom", url] -> {:rss_atom, url}
