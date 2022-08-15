@@ -1213,6 +1213,7 @@ defmodule Overdiscord.IRC.Bridge do
       |> String.replace(~R/@?\byuesha\b/i, "<@712305158352273418>")
       |> String.replace(~R/@?\boverminddl1\b|@?\bovermind\b/i, "<@240159434859479041>")
       |> String.replace(~R/@?\bxarses\b/i, "<@290667609920372737>")
+      |> String.replace(~R/@?\btrinsdar\b/i, "<@313675165261103105>")
       |> to_string()
 
     msg =
@@ -1778,7 +1779,7 @@ defmodule Overdiscord.IRC.Bridge do
               [] ->
                 "Unable to locate member_id of: #{args}"
 
-              [%{user: %{id: id}}] ->
+              [%{user: %{id: id}} | _] ->
                 case Alchemy.Cache.presence(alchemy_guild(), id) do
                   {:ok, %Alchemy.Guild.Presence{game: game, status: status}} ->
                     game = if(game == nil, do: "", else: " and is running #{game}")
