@@ -113,6 +113,7 @@ defmodule Overdiscord.Commands do
 
   def send_event(auth, %{msg_discord: msg}, to) do
     IO.inspect({auth, to, msg}, label: :DiscordSendEvent)
+
     case msg do
       %Alchemy.Embed{} = embed ->
         Alchemy.Client.send_message(to, "", embed: embed, tts: false)

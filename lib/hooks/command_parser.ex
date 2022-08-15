@@ -115,10 +115,11 @@ defmodule Overdiscord.Hooks.CommandParser do
 
   defp call_command(auth, cmd, unparsed_args, opts) do
     # TODO: Add permission check on all commands for any access at all once default permissions are built
-    {parser, prefix_args} = case lookup_command(cmd) do
-                                nil -> {nil, ""}
-                              {parser, prefix_args} -> {parser, prefix_args}
-                            end
+    {parser, prefix_args} =
+      case lookup_command(cmd) do
+        nil -> {nil, ""}
+        {parser, prefix_args} -> {parser, prefix_args}
+      end
 
     case parser do
       nil ->
