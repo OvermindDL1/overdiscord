@@ -293,12 +293,12 @@ defmodule Overdiscord.Web.CallbackController do
           "workflow" => _workflow
         } = params
       ) do
-    run_number =
-      :proplists.get_value("x-github-delivery", conn.req_headers) |> String.to_integer()
+    IO.inspect(%{req_headers: conn.req_headers, params: params})
+    run_guid = :proplists.get_value("x-github-delivery", conn.req_headers)
 
     event_name = :proplists.get_value("x-github-event", conn.req_headers)
 
-    IO.inspect({params, run_number, event_name}, label: :CI_PARAMS)
+    IO.inspect({params, run_guid, event_name}, label: :CI_PARAMS)
 
     if conn.private.verified_signature do
       {short_commit, _} = String.split_at(commit, 8)
@@ -370,6 +370,11 @@ defmodule Overdiscord.Web.CallbackController do
       |> put_status(:unauthorized)
       |> text("unauthenticated token")
     end
+  end
+
+  def ci(conn, params) do
+    IO.inspect(params)
+    conn |> put_status(500)
   end
 
   def concourse(
