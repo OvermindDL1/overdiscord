@@ -107,12 +107,28 @@ defmodule Overdiscord.Hooks.Commands.System do
     {{_, io_input}, {_, io_output}} = :erlang.statistics(:io)
     uptime = uptime()
 
+    disk_space =
+      :disksup.get_disk_data()
+      |> Enum.map(fn {id, kbyte, capperc} ->
+        {List.to_string(id), kbyte, capperc}
+      end)
+      |> Enum.filter(fn {id, _kbyte, _capperc} ->
+        not String.contains?(id, ["/snap/", "/docker/", "/dev", "/run", "/sys", "/boot"])
+      end)
+      |> Enum.map(fn {id, kbyte, capperc} ->
+        capperc = 100 - capperc
+        total = :erlang.float_to_binary(kbyte / 1_000_000, decimals: 3)
+        # capperc is 0 to 100 as a percentage, it's not a float
+        free = :erlang.float_to_binary(kbyte * capperc / (100 * 1_000_000), decimals: 3)
+        "* `#{id}` #{free} GB free / #{total} GB total (#{capperc}% free)\n"
+      end)
+
     mem_format = fn
       mem, :kb -> "#{div(mem, 1000)} KB"
       mem, :mb -> "#{div(mem, 1_000_000)} MB"
     end
 
-    total_memory = mem_format.(memories[:total], :mb)
+    total_used_memory = mem_format.(memories[:total], :mb)
     io_input = mem_format.(io_input, :mb)
     process_memory = mem_format.(memories[:processes], :mb)
     code_memory = mem_format.(memories[:code], :mb)
@@ -123,31 +139,33 @@ defmodule Overdiscord.Hooks.Commands.System do
     msg = [
       ["Uptime: ", uptime, "\n"],
       ["Processes: ", processes, "\n"],
-      ["Total Memory: ", total_memory, "\n"],
+      ["Total Used Memory: ", total_used_memory, "\n"],
       ["IO Input: ", io_input, "\n"],
       ["Process Memory: ", process_memory, "\n"],
       ["Code Memory: ", code_memory, "\n"],
       ["IO Output: ", io_output, "\n"],
       ["ETS Memory: ", ets_memory, "\n"],
-      ["Atom Memory: ", atom_memory, "\n"]
+      ["Atom Memory: ", atom_memory, "\n"],
+      ["Disk Space:\n", disk_space]
     ]
 
     msg_discord =
       [
         {"Uptime", uptime},
         {"Processes", processes},
-        {"Total Memory", total_memory},
+        {"Total Memory", total_used_memory},
         {"IO Input", io_input},
         {"Process Memory", process_memory},
         {"Code Memory", code_memory},
         {"IO Output", io_output},
         {"ETS Memory", ets_memory},
-        {"Atom Memory", atom_memory}
+        {"Atom Memory", atom_memory},
+        {"Disk Space", disk_space}
       ]
       |> Enum.reduce(@red_embed, fn {name, value}, embed ->
         field(embed, name, value, inline: true)
       end)
 
-    %{msg: to_string(msg), msg_discord: msg_discord, reply?: true}
+    %{msg: to_string(msg) |> String.trim(), msg_discord: msg_discord, reply?: true}
   end
 end

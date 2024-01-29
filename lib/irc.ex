@@ -1042,7 +1042,7 @@ defmodule Overdiscord.IRC.Bridge do
   def transform_earmark_ast_to_markdown({"blockquote", _, body}) do
     body = transform_earmark_ast_to_markdown(body)
     body = String.trim_trailing(body, "\n")
-    ">" <> String.replace(body, "\n", "\n> ")
+    "> " <> String.replace(body, "\n", "\n> ")
   end
 
   def transform_earmark_ast_to_markdown({"strong", _, body}) do
@@ -1214,6 +1214,7 @@ defmodule Overdiscord.IRC.Bridge do
       |> String.replace(~R/@?\boverminddl1\b|@?\bovermind\b/i, "<@240159434859479041>")
       |> String.replace(~R/@?\bxarses\b/i, "<@290667609920372737>")
       |> String.replace(~R/@?\btrinsdar\b/i, "<@313675165261103105>")
+      |> String.replace(~R/@?\braven\b|@?\beigenraven\b/i, "<@148428133551439872>")
       |> to_string()
 
     msg =

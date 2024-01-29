@@ -24,7 +24,10 @@ defmodule Overdiscord.Mixfile do
     [
       mod: {Overdiscord, []},
       extra_applications: [
-        :logger
+        :logger,
+        :sasl,
+        :os_mon,
+        :disksup
       ]
     ]
   end
