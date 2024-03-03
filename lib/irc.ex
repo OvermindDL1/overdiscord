@@ -1248,8 +1248,10 @@ defmodule Overdiscord.IRC.Bridge do
     msg
   end
 
-  def alchemy_channel(), do: "320192373437104130"
-  def alchemy_guild(), do: "225742287991341057"
+  #def alchemy_channel(), do: "320192373437104130"
+  #def alchemy_guild(), do: "225742287991341057"
+  def alchemy_channel(), do: "1213612141429653566"
+  def alchemy_guild(), do: "1213386848299122740"
 
   def alchemy_webhook_url(),
     do:
@@ -1264,7 +1266,8 @@ defmodule Overdiscord.IRC.Bridge do
         nil ->
           throw("Set `OVERDISCORD_WEEBHOOK_BEARIRC`")
 
-        "https://discordapp.com/api/webhooks/" <> data ->
+        #"https://discordapp.com/api/webhooks/" <> data ->
+        "https://discord.com/api/webhooks/" <> data ->
           [wh_id, wh_token] = String.split(data, "/", parts: 2)
           Macro.escape(%Alchemy.Webhook{id: wh_id, token: wh_token})
       end

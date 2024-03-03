@@ -162,7 +162,7 @@ defmodule Overdiscord.Commands do
     Logger.warn(inspect({:done, msgs}))
 
     # Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")
-    if to == "320192373437104130" do
+    if to == "320192373437104130" or to == "1213612141429653566" do
       wh = Overdiscord.IRC.Bridge.alchemy_webhook()
       username = auth.nickname
       down_username = String.downcase(username)

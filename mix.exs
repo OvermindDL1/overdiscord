@@ -27,7 +27,7 @@ defmodule Overdiscord.Mixfile do
         :logger,
         :sasl,
         :os_mon,
-        :disksup
+        #:disksup
       ]
     ]
   end
