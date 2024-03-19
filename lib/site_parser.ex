@@ -6,6 +6,9 @@ defmodule Overdiscord.SiteParser do
     get_summary(url)
   end
 
+  def get_summary_cached("https://discord.gg/" <> url) do
+    get_summary("https://discord.gg/" <> url)
+  end
   def get_summary_cached(url) do
     case Cachex.fetch(:summary_cache, url, &get_summary_cache_init/1) do
       {:ok, result} ->
