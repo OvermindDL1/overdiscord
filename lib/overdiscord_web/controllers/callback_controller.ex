@@ -315,7 +315,7 @@ defmodule Overdiscord.Web.CallbackController do
               send_event(
                 name,
                 title <>
-                  "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989"
+                  "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/"
               )
           end
 
@@ -436,7 +436,7 @@ defmodule Overdiscord.Web.CallbackController do
 
               Storage.delete(@db, :kv, "GregTech-6/GT6")
 
-              "New SNAPSHOT #{build_version}: https://gregtech.mechaenetia.com/secretdownloads/ @Bear989\n#{
+              "New SNAPSHOT #{build_version}: https://gregtech.mechaenetia.com/secretdownloads/ \n#{
                 msgs
               }"
 
