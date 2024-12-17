@@ -1,0 +1,19 @@
+version: 2
+updates:
+- package-ecosystem: mix
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "11:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: floki
+    versions:
+    - 0.29.0
+    - 0.30.0
+  - dependency-name: plug
+    versions:
+    - 1.11.0
+  - dependency-name: gen_stage
+    versions:
+    - 0.14.3
