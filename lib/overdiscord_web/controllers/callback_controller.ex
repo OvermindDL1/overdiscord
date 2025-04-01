@@ -184,7 +184,7 @@ defmodule Overdiscord.Web.CallbackController do
 
     msg =
       """
-      #{pusher["full_name"]} pushed commits, see diff at: #{compare_url}
+      #{pusher["full_name"]} pushed commits, see diff at: <<#{compare_url}>>
       #{commit_msgs}
       """
       |> String.trim()
@@ -322,21 +322,21 @@ defmodule Overdiscord.Web.CallbackController do
           case Storage.get(@db, :kv, {:last_commit_seen, repository}, nil) do
             nil ->
               url = "https://github.com/#{repository}/commit/#{commit}"
-              send_event(name, "See commit at: #{url}")
+              send_event(name, "See commit at: <<#{url}>>")
               send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
 
             # send_irc_cmd(name, url)
 
             %{last_commit: ^commit} ->
               url = "https://github.com/#{repository}/commit/#{commit}"
-              send_event(name, "See commit at: #{url}")
+              send_event(name, "See commit at: <<#{url}>>")
               send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
 
             # send_irc_cmd(name, url)
 
             %{last_commit: last_commit} ->
               url = "https://github.com/#{repository}/compare/#{last_commit}...#{commit}"
-              send_event(name, "See diff at: #{url}")
+              send_event(name, "See diff at: <<#{url}>>")
               send_event(name, Overdiscord.SiteParser.get_summary_cached(url))
               # send_irc_cmd(title, url)
           end
@@ -431,7 +431,7 @@ defmodule Overdiscord.Web.CallbackController do
                       }"
 
                     commit_msgs = commit_msgs |> :lists.reverse() |> Enum.join("\n")
-                    "See diff at: #{diff_url}\n#{commit_msgs}"
+                    "See diff at: <<#{diff_url}>>\n#{commit_msgs}"
                 end
 
               Storage.delete(@db, :kv, "GregTech-6/GT6")
@@ -515,7 +515,7 @@ defmodule Overdiscord.Web.CallbackController do
 
           res ->
             Logger.warn(
-              "event_if_maven_updated failed in url_content_of with opts `#[inspect opts]` with result: #[inspect res]`"
+           	"event_if_maven_updated failed in url_content_of with opts `#{inspect opts}` with result: #{inspect res}`"
             )
 
             nil
@@ -540,7 +540,7 @@ defmodule Overdiscord.Web.CallbackController do
         Logger.info("event_if_maven_updated success but nothing to do: #[inspect opts}]")
         nil
 
-      {key, value, opts} ->
+      {_key, _value, opts} ->
         cond do
           opts[:event] ->
             case opts[:event] do
