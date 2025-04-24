@@ -515,7 +515,9 @@ defmodule Overdiscord.Web.CallbackController do
 
           res ->
             Logger.warn(
-           	"event_if_maven_updated failed in url_content_of with opts `#{inspect opts}` with result: #{inspect res}`"
+              "event_if_maven_updated failed in url_content_of with opts `#{inspect(opts)}` with result: #{
+                inspect(res)
+              }`"
             )
 
             nil

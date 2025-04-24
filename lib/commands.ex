@@ -159,30 +159,46 @@ defmodule Overdiscord.Commands do
         [msg]
       end
 
-    Logger.warn(inspect({:done, msgs}))
+    Logger.warn(inspect({:done, to, msgs}))
 
     # Alchemy.Client.send_message(to, "#{auth.location}|#{auth.nickname}: #{msg}")
     if to == "320192373437104130" or to == "1213612141429653566" do
       wh = Overdiscord.IRC.Bridge.alchemy_webhook()
       username = auth.nickname
-      down_username = String.downcase(username)
-      guild_id = nil
+
+      down_username =
+        case username do
+          "GregoriusTechneticies" -> "gregorius.techneticies"
+          _ -> String.downcase(username)
+        end
+
+      # nil
+      guild_id = "1213386848299122740"
+
+      IO.inspect(down_username, label: :DownUsername)
 
       try do
         case create_reply(guild_id, auth, event) do
           nil ->
             Alchemy.Cache.search(:members, fn
               %{user: %{username: ^username}} ->
+                IO.inspect(username, label: FoundUsername)
                 true
 
-              %{user: %{username: discord_username}} ->
-                down_username == String.downcase(discord_username)
+              %{user: %{username: ^down_username}} ->
+                IO.inspect(down_username, label: FoundDownUsername)
+                true
+
+              # %{user: %{username: discord_username}} ->
+              #  IO.inspect({down_username, discord_username, String.downcase(discord_username)}, label: TestDownUsername)
+              #  down_username == String.downcase(discord_username)
 
               _ ->
                 false
             end)
 
           reply ->
+            IO.inspect(down_username, label: "No matching member ID found for")
             [reply]
         end
       rescue
@@ -190,8 +206,9 @@ defmodule Overdiscord.Commands do
       catch
         _ -> []
       end
+      |> IO.inspect(label: :FoundUser)
       |> case do
-        [%{user: %{id: id, avatar: avatar}}] when avatar not in [nil, ""] ->
+        [%{user: %{id: id, avatar: avatar}} | _] when avatar not in [nil, ""] ->
           avatar_url = "https://cdn.discordapp.com/avatars/#{id}/#{avatar}.jpg?size=128"
 
           Enum.each(msgs, fn msg ->
@@ -237,6 +254,8 @@ defmodule Overdiscord.Commands do
           end
       end
     else
+      IO.inspect({msgs}, label: :BasicMessage)
+
       Enum.each(msgs, fn msg ->
         {msg, options} =
           case create_reply(nil, auth, event) do
