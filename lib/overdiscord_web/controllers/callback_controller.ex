@@ -315,7 +315,7 @@ defmodule Overdiscord.Web.CallbackController do
               send_event(
                 name,
                 title <>
-                  "New SNAPSHOT: https://gregtech.mechaenetia.com/secretdownloads/"
+                  "New SNAPSHOT: <https://gregtech.mechaenetia.com/secretdownloads/>"
               )
           end
 
@@ -436,7 +436,7 @@ defmodule Overdiscord.Web.CallbackController do
 
               Storage.delete(@db, :kv, "GregTech-6/GT6")
 
-              "New SNAPSHOT #{build_version}: https://gregtech.mechaenetia.com/secretdownloads/ \n#{
+              "New SNAPSHOT #{build_version}: <https://gregtech.mechaenetia.com/secretdownloads/>\n#{
                 msgs
               }"
 
@@ -445,7 +445,7 @@ defmodule Overdiscord.Web.CallbackController do
               :undefined
 
             _ ->
-              "Build #{build_name} of #{build_type} succeeded: https://gregtech.mechaenetia.com/secretdownloads/"
+              "Build #{build_name} of #{build_type} succeeded: <https://gregtech.mechaenetia.com/secretdownloads/>"
           end
           |> case do
             msg when is_binary(msg) -> send_event(title, msg)
